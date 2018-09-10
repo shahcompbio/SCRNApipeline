@@ -22,5 +22,5 @@ Retrieve pandas dataframe:
 ```
 sce = SingleCellExperiment("example_sce.RData")
 dataframe = sce.matrix()
-print(dataframe.head)
+print(dataframe.head())
 ```
