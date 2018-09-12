@@ -112,3 +112,6 @@ dmypy.json
 
 # Temp Files
 tmp/
+
+# Output
+*.txt

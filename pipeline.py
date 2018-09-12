@@ -1,12 +1,16 @@
 import pypeliner.workflow
 import rpy2.robjects as robjects
 import argparse
+from utils import converter
+
+
+def run_cellalign():
+    r_source = robjects.r['source']
+    r_source("")
 
 def create_workflow():
 
     workflow = pypeliner.workflow.Workflow()
-
-    
     #
     # workflow.commandline(
     #
