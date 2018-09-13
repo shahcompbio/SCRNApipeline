@@ -9,7 +9,7 @@ Single Cell RNA-seq Pipeline
 
 ## Modules ##
 ### Utils ###
-1. export.py -> rdata to fl
+1. export.py *rdata to flat file*
 
 ### Interface ###
 1. dropletutils
@@ -24,7 +24,6 @@ Single Cell RNA-seq Pipeline
 Loading RData
 ```
 sce = SingleCellExperiment.fromRData("~/data/example_sce.RData")
-
 ```
 
 Accessing SingleCellExperiment Assays as Pandas Dataframe (with row and column indexing)
