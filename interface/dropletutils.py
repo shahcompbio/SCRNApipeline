@@ -7,14 +7,18 @@ class DropletUtils(object):
 
     def __init__(self):
         self.namespace = importr("DropletUtils")
-        self.tools = importr("scater")
         for attr, reference in self.namespace.__dict__.items():
             setattr(self, attr, reference)
 
+    def ranks(self, sparse_matrix):
+        dcg_matrix = SingleCellExperiment.CSRtoDCG(sparse_matrix)
+        results = self.barcodeRanks(dcg_matrix)
+        return results
+
+    def emptydrops(self, sparse_matrix):
+        dcg_matrix = SingleCellExperiment.CSRtoDCG(sparse_matrix)
+        results = self.emptyDrops(dcg_matrix)
+        return results
 
 if __name__ == '__main__':
-    tenx = DropletUtils()
-    res = tenx.read10xCounts("~/data/raw_gene_bc_matrices/GRCh38/")
-    sce = SingleCellExperiment.fromRS4(res)
-    sce = SingleCellExperiment.fromRData("~/data/example_sce.RData")
-    print(sce.assays["BatchCellMeans"])
+    pass

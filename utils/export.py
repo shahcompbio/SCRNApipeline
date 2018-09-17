@@ -3,6 +3,7 @@ import glob
 import inspect
 import os
 import numpy
+import pickle
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.dropletutils import DropletUtils
 
@@ -31,12 +32,8 @@ def exportRS4(rs4_object, directory, delim="\t"):
         dataframe = rs4_object.assay(assay)
         dataframe.to_csv(filename,sep=delim)
 
-if __name__ == '__main__':
-    # input_rdata = "/home/ceglian/data/example_sce.RData"
-    # output_directory = "/home/ceglian/data/example_sce_data/"
-    # exportRData(input_rdata, output_directory)
+def convertRS4Dict(rs4_dict):
+    pass
 
-    tenx = DropletUtils()
-    res = tenx.read10xCounts("~/data/raw_gene_bc_matrices/GRCh38/")
-    sce = SingleCellExperiment.fromRS4(res)
-    exportRS4(sce, "/home/ceglian/data/droplet_example/")
+if __name__ == '__main__':
+    pass

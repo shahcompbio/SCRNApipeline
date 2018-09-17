@@ -10,6 +10,8 @@ import pandas
 import numpy
 import argparse
 import warnings
+from tqdm import tqdm
+from scipy.sparse import csr_matrix
 
 warnings.filterwarnings("ignore")
 pandas2ri.activate()
@@ -17,7 +19,8 @@ pandas2ri.activate()
 SingleCellExperimentInterface = importr('SingleCellExperiment')
 SummarizedExperimentInterface = importr('SummarizedExperiment')
 BiocGenericsInterface         = importr('BiocGenerics')
-
+ScaterInterface               = importr('scater')
+MatrixInterface               = importr('Matrix')
 
 """
 SingleCellExperiment
@@ -60,8 +63,9 @@ class SingleCellExperiment(RS4):
         if type(rs4_object) == rinterface.RNULLType:
             return unpacked_object
         for slot in rs4_object.slotnames():
-            if type(rs4_object.slots[slot]) == rinterface.RNULLType: continue
-            robj = pandas2ri.ri2py(rs4_object.slots[slot])
+            value = rs4_object.slots[slot]
+            if type(value) == rinterface.RNULLType: continue
+            robj = pandas2ri.ri2py(value)
             if type(robj) == robjects.vectors.ListVector:
                 list_array = list()
                 for x in pandas2ri.ri2py(robj):
@@ -74,27 +78,28 @@ class SingleCellExperiment(RS4):
     @staticmethod
     def get_axis(axis_data):
         assert "nrows" in axis_data, "Axis requires nrows"
-        assert "rownames" in axis_data, "Axis requires rownames"
         assert "listData" in axis_data, "Axis requires listData"
-        nrows = axis_data["nrows"]
-        rownames = axis_data["rownames"]
-        categorical = axis_data["listData"]
-        return rownames, nrows[0], categorical
+        nrows = axis_data["nrows"][0]
+        data = axis_data["listData"]
+        if "rownames" not in axis_data:
+            names = map(str,list(range(nrows)))
+        else:
+            names = axis_data["rownames"]
+        return names, nrows, data
 
     @property
     def assayNames(self):
         return tuple(self._assays.keys())
 
-    def assay(self, assay):
-        row_names, nrows, _ = self.rowData
-        col_names, ncols, _ = self.colData
-        assert (nrows, ncols) == self.assays[assay].shape, "Invalid Data Shape"
-        row_names_index = pandas.Index(row_names, name="rows")
-        col_names_index = pandas.Index(col_names, name="columns")
-        dataframe = pandas.DataFrame(data=self.assays[assay],
-                                     index=row_names_index,
-                                     columns=col_names_index)
-        return dataframe
+    def assay(self, assay, row_index=0, col_index=0):
+        assay = self.assays[assay]
+        row_names, nrows, row_data = self.rowData
+        col_names, ncols, col_data = self.colData
+        assert (nrows, ncols) == assay.shape
+        row_index = pandas.MultiIndex.from_tuples(list(zip(*row_data)))
+        col_index = pandas.MultiIndex.from_tuples(list(zip(*col_data)))
+        assay_df = pandas.DataFrame(data=assay,index=row_index,columns=col_index)
+        return assay_df
 
     @property
     def rowData(self):
@@ -116,27 +121,42 @@ class SingleCellExperiment(RS4):
     def assays(self):
         return self._assays
 
+    @staticmethod
+    def DCGtoCSR(data, row_ind, col_pointers, nrows):
+        data = list(data)
+        begin_pointer = col_pointers[0]
+        col_ind = numpy.zeros(len(row_ind))
+        for column, pointer in enumerate(col_pointers[1:]):
+            for row in range(begin_pointer, pointer):
+                col_ind[row] = column
+            begin_pointer = pointer
+        return csr_matrix((data,(row_ind,col_ind)),shape=(nrows,len(col_pointers)-1))
+
+    @staticmethod
+    def CSRtoDCG(sparse_matrix):
+        data = robjects.IntVector(sparse_matrix.toarray().flatten())
+        nrows, ncols = sparse_matrix.shape
+        return MatrixInterface.Matrix(data, nrow=nrows, ncol=ncols, sparse=True)
+
     @assays.setter
     def assays(self, rs4_assays):
         list_vector = pandas2ri.ri2py(rs4_assays.slots["listData"])
         assays = dict()
         for assay, label in zip(list_vector, list_vector.names):
             if type(assay) == robjects.methods.RS4:
-                assays[label] = dict()
-                for slot in assay.slotnames():
-                    assays[label][slot] = pandas2ri.ri2py(assay.slots[slot])
+                non_zero_elements = pandas2ri.ri2py(assay.slots["x"])
+                row_numbers =pandas2ri.ri2py(assay.slots["i"])
+                column_pointers = pandas2ri.ri2py(assay.slots["p"])
+                nrows = len(list(pandas2ri.ri2py(assay.slots["Dimnames"]))[0])
+                assays[label] = SingleCellExperiment.DCGtoCSR(non_zero_elements, row_numbers, column_pointers, nrows)
             elif type(assay) == robjects.vectors.Matrix:
-                assays[label] = pandas2ri.ri2py(assay)
+                assays[label] = csr_matrix(pandas2ri.ri2py(assay))
         self._assays = assays
 
-if __name__ == '__main__':
-    sce = SingleCellExperiment.fromRData("~/data/example_sce.RData")
-    for assay in sce.assayNames:
-        print(assay,sce.assay(assay))
+    def annotate(self):
+        print(len(self.rowData))
+        print(len(self.rowData))
 
-    # matrices = sce.assayList
-    # print(sce.rowData)
-    # print(sce.colData)
-    # print(sce.assays)
-    # print(sce.reducedDims)
-    # print(sce.sizeFactors)
+
+if __name__ == '__main__':
+    pass
