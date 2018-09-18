@@ -65,14 +65,13 @@ class SingleCellExperiment(RS4):
         for slot in rs4_object.slotnames():
             value = rs4_object.slots[slot]
             if type(value) == rinterface.RNULLType: continue
-            robj = pandas2ri.ri2py(value)
-            if type(robj) == robjects.vectors.ListVector:
+            if type(value) == robjects.vectors.ListVector:
                 list_array = list()
-                for x in pandas2ri.ri2py(robj):
+                for x in value:
                     list_array.append(pandas2ri.ri2py(x))
                 unpacked_object[slot] = list_array
             else:
-                unpacked_object[slot] = list(robj)
+                unpacked_object[slot] = list(value)
         return unpacked_object
 
     @staticmethod
@@ -141,21 +140,19 @@ class SingleCellExperiment(RS4):
     @assays.setter
     def assays(self, rs4_assays):
         list_vector = pandas2ri.ri2py(rs4_assays.slots["listData"])
-        assays = dict()
+        self._assays = dict()
         for assay, label in zip(list_vector, list_vector.names):
             if type(assay) == robjects.methods.RS4:
-                non_zero_elements = pandas2ri.ri2py(assay.slots["x"])
+                non_zero_elements = assay.slots["x"]
                 row_numbers =pandas2ri.ri2py(assay.slots["i"])
                 column_pointers = pandas2ri.ri2py(assay.slots["p"])
                 nrows = len(list(pandas2ri.ri2py(assay.slots["Dimnames"]))[0])
-                assays[label] = SingleCellExperiment.DCGtoCSR(non_zero_elements, row_numbers, column_pointers, nrows)
+                self._assays[label] = SingleCellExperiment.DCGtoCSR(non_zero_elements, row_numbers, column_pointers, nrows)
             elif type(assay) == robjects.vectors.Matrix:
-                assays[label] = csr_matrix(pandas2ri.ri2py(assay))
-        self._assays = assays
+                self._assays[label] = csr_matrix(pandas2ri.ri2py(assay))
 
     def annotate(self):
-        print(len(self.rowData))
-        print(len(self.rowData))
+        pass
 
 
 if __name__ == '__main__':

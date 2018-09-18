@@ -1,12 +1,23 @@
 import unittest
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.dropletutils import DropletUtils
+from software.cellassign import CellAssign
+from software.clonealign import CloneAlign
 from utils.plotting import PlotRanks
+from pstats import Stats
+import cProfile
 
 class TestSingleCellExperiment(unittest.TestCase):
 
     def setUp(self):
-        pass
+        self.profile = cProfile.Profile()
+        self.profile.enable()
+
+    def tearDown(self):
+        p = Stats(self.profile)
+        p.strip_dirs()
+        p.sort_stats('cumtime')
+        p.print_stats(12)
 
     def test_load_rdata(self):
         rdata = "/home/ceglian/data/example_sce.RData"
@@ -55,14 +66,14 @@ class TestSingleCellExperiment(unittest.TestCase):
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         tenx = DropletUtils()
         assay = sce_from_rdata.assays["counts"]
-        values = tenx.ranks(assay)
+        values = tenx.barcodeRanks(assay)
 
     def test_call_empty_drops(self):
         rdata = "/home/ceglian/data/example_sce.RData"
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         tenx = DropletUtils()
         assay = sce_from_rdata.assays["counts"]
-        values = tenx.emptydrops(assay)
+        values = tenx.emptyDrops(assay)
 
     def test_cell_calling_diagnostics(self):
         raise AssertionError("Not Implemented")
@@ -92,10 +103,15 @@ class TestSingleCellExperiment(unittest.TestCase):
         raise AssertionError("Not Implemented")
 
     def test_cell_assign_em(self):
-        raise AssertionError("Not Implemented")
+        ca = CellAssign()
 
     def test_clone_align(self):
-        raise AssertionError("Not Implemented")
+        example_rda = "/home/ceglian/data/example_sce.rda"
+        example_clonealign_fit = "/home/ceglian/data/example_clonealign_fit.rda"
+        sce = SingleCellExperiment.fromRData(example_rda)
+        clonealigner = CloneAlign()
+        res = clonealigner.run(sce, example_clonealign_fit)
+
 
 if __name__ == '__main__':
     unittest.main()
