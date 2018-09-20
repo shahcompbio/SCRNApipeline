@@ -1,5 +1,7 @@
 import urllib.request
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
+from urllib.error import HTTPError
+
 
 class CellAssign(object):
 

@@ -33,11 +33,13 @@ class TestSingleCellExperiment(unittest.TestCase):
         sce_from_rs4 = SingleCellExperiment.fromRS4(rs4_result)
 
     def test_assay_names_rdata(self):
+        expected_assays = ['BatchCellMeans', 'BaseCellMeans', 'BCV', 'CellMeans', 'TrueCounts', 'counts']
         rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         assays = sce_from_rdata.assays
         assay_names = list(assays.keys())
-        self.assertEqual(assay_names,['BatchCellMeans', 'BaseCellMeans', 'BCV', 'CellMeans', 'TrueCounts', 'counts'])
+        for assay in assay_names:
+            self.assertTrue(assay in expected_assays)
 
     def test_raw_assay_type_equivelence(self):
         rdata = os.path.join(base_dir, "tests/example_sce.RData")
