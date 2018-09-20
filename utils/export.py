@@ -32,8 +32,9 @@ def exportRS4(rs4_object, directory, delim="\t"):
         dataframe = rs4_object.assay(assay)
         dataframe.to_csv(filename,sep=delim)
 
-def convertRS4Dict(rs4_dict):
-    pass
+
+def inportRS4(rs4_directory, delim="\t"):
+    raise AssertionError("Not Implemented")
 
 if __name__ == '__main__':
     pass

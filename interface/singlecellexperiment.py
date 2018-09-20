@@ -3,7 +3,6 @@ import rpy2.rinterface as rinterface
 from rpy2.robjects import r, pandas2ri
 from rpy2.robjects.methods import RS4
 from rpy2.robjects.packages import importr
-from multipledispatch import dispatch
 from functools import partial
 import os
 import pandas
@@ -49,6 +48,11 @@ class SingleCellExperiment(RS4):
     @classmethod
     def fromRS4(sce_class, rs4_object):
         sce = sce_class(rs4_object)
+        print("Class attr")
+        for fxn, ref in sce.__dict__.items():
+            print()
+            print("FXN:", fxn, ref)
+            print()
         sce.rowData = SummarizedExperimentInterface.rowData(sce)
         sce.colData = SummarizedExperimentInterface.colData(sce)
         sce.assays = SummarizedExperimentInterface.assays(sce)
