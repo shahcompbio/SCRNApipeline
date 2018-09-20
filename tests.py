@@ -6,6 +6,9 @@ from software.clonealign import CloneAlign
 from utils.plotting import PlotRanks
 from pstats import Stats
 import cProfile
+import os
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
 
 class TestSingleCellExperiment(unittest.TestCase):
 
@@ -20,7 +23,7 @@ class TestSingleCellExperiment(unittest.TestCase):
         p.print_stats(12)
 
     def test_load_rdata(self):
-        rdata = "/home/ceglian/data/example_sce.RData"
+        rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         pass
 
@@ -30,14 +33,14 @@ class TestSingleCellExperiment(unittest.TestCase):
         sce_from_rs4 = SingleCellExperiment.fromRS4(rs4_result)
 
     def test_assay_names_rdata(self):
-        rdata = "/home/ceglian/data/example_sce.RData"
+        rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         assays = sce_from_rdata.assays
         assay_names = list(assays.keys())
         self.assertEqual(assay_names,['BatchCellMeans', 'BaseCellMeans', 'BCV', 'CellMeans', 'TrueCounts', 'counts'])
 
     def test_raw_assay_type_equivelence(self):
-        rdata = "/home/ceglian/data/example_sce.RData"
+        rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         tenx = DropletUtils()
         rs4_results = tenx.read10xCounts("/home/ceglian/data/raw_gene_bc_matrices/hg19/")
@@ -45,7 +48,7 @@ class TestSingleCellExperiment(unittest.TestCase):
         self.assertEqual(type(sce_from_rdata.assays["counts"]),type(sce_from_rdata.assays["counts"]))
 
     def test_get_assay_with_row_col_data_rdata(self):
-        rdata = "/home/ceglian/data/example_sce.RData"
+        rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         assert sce_from_rdata.assay("counts").shape == sce_from_rdata.assays["counts"].shape
 
@@ -57,19 +60,19 @@ class TestSingleCellExperiment(unittest.TestCase):
         #assert sce_from_rs4.assay("counts").shape == sce_from_rs4.assays["counts"].shape
 
     def test_annotation_rdata(self):
-        rdata = "/home/ceglian/data/example_sce.RData"
+        rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         sce_from_rdata.annotate()
 
     def test_barcode_ranks(self):
-        rdata = "/home/ceglian/data/example_sce.RData"
+        rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         tenx = DropletUtils()
         assay = sce_from_rdata.assays["counts"]
         values = tenx.barcodeRanks(assay)
 
     def test_call_empty_drops(self):
-        rdata = "/home/ceglian/data/example_sce.RData"
+        rdata = os.path.join(base_dir, "tests/example_sce.RData")
         sce_from_rdata = SingleCellExperiment.fromRData(rdata)
         tenx = DropletUtils()
         assay = sce_from_rdata.assays["counts"]
@@ -106,8 +109,8 @@ class TestSingleCellExperiment(unittest.TestCase):
         ca = CellAssign()
 
     def test_clone_align(self):
-        example_rda = "/home/ceglian/data/example_sce.rda"
-        example_clonealign_fit = "/home/ceglian/data/example_clonealign_fit.rda"
+        example_rda = os.path.join(base_dir, "tests/example_sce.rda")
+        example_clonealign_fit = os.path.join(example_rda, "tests/example_clonealign_fit.rda")
         sce = SingleCellExperiment.fromRData(example_rda)
         clonealigner = CloneAlign()
         res = clonealigner.run(sce, example_clonealign_fit)
