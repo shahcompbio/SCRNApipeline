@@ -19,7 +19,6 @@ pandas2ri.activate()
 SingleCellExperimentInterface = importr('SingleCellExperiment')
 SummarizedExperimentInterface = importr('SummarizedExperiment')
 BiocGenericsInterface         = importr('BiocGenerics')
-ScaterInterface               = importr('scater')
 MatrixInterface               = importr('Matrix')
 
 """
