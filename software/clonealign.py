@@ -10,31 +10,25 @@ from rpy2.robjects.packages import importr
 import string
 import numpy
 import pandas
-import tensorflow
-
-MatrixInterface = importr('Matrix')
-CloneAlignInterface = importr('clonealign')
-
+import gc
 
 class CloneAlign(object):
 
     def __init__(self):
-        pass
         # decode = lambda x: x.decode("utf-8")
-        # if False:
-        #     try:
-        #         github_url = urllib.request.urlopen('https://raw.githubusercontent.com/kieranrcampbell/clonealign/master/R/clonealign.R')
-        #         code = '\n'.join(map(decode, github_url.readlines()))
-        #         self.clonealign = SignatureTranslatedAnonymousPackage(code, "clonealign")
-        #         github_url = urllib.request.urlopen('https://raw.githubusercontent.com/kieranrcampbell/clonealign/master/R/inference-tflow.R')
-        #         code = '\n'.join(map(decode, github_url.readlines()))
-        #         self.inference_tflow = SignatureTranslatedAnonymousPackage(code, "clonealign")
-        #     except HTTPError:
-        #         pass
-        #     for fxn in self.clonealign.__dict__.keys():
-        #         print(fxn)
-        # else:
-        #     pass
+        # github_url = urllib.request.urlopen('https://raw.githubusercontent.com/kieranrcampbell/clonealign/master/R/clonealign.R')
+        # code = '\n'.join(map(decode, github_url.readlines()))
+        # github_url = urllib.request.urlopen('https://raw.githubusercontent.com/kieranrcampbell/clonealign/master/R/inference-tflow.R')
+        # code += '\n'.join(map(decode, github_url.readlines()))
+        # stop_code = "stop(msg)"
+        # if stop_code in code:
+        #     print("Found stop code")
+        #     code = code.replace(stop_code,"")
+        # code = "library('tensorflow')\n" + code
+        # code = "library('glue')\n" + code
+        # code = "library('reticulate')\n" + code
+        code = open('/home/ceglian/codebase/clonealign/R/clonealign.R',"r").read()
+        self.clonealign = SignatureTranslatedAnonymousPackage(code, "clonealign")
 
     @staticmethod
     def loadFitMatrix(rdata_path):
@@ -49,10 +43,11 @@ class CloneAlign(object):
     def dumpFitMatrix(rdata_path):
         pass
 
-    def run(self, sce_experiment, copy_number_data):
-        # #copy_number_matrix = CloneAlign.loadMatrix(copy_number_data)
-        # return
-
+    def run(self, sce_experiment):
+        # ReticulateInterface = importr('reticulate')
+        # TensorFlowInterface = importr('tensorflow')
+        # #TensorFlowInterface.install_tensorflow()
+        # CloneAlignInterface = importr('clonealign')
         rownames, nrows, data = sce_experiment.rowData
         _, ncols, _ = sce_experiment.colData
         df = dict()
@@ -64,8 +59,4 @@ class CloneAlign(object):
         df = pandas.DataFrame.from_dict(df)
         df.set_index(["names"])
         copy_number_matrix = pandas2ri.py2ri(df)
-        try:
-            return CloneAlignInterface.clonealign(sce_experiment, copy_number_matrix, max_iter_em=5)
-        except Exception as e:
-            print("Caught Exception")
-            print(e)
+        return self.clonealign.clonealign(sce_experiment, copy_number_matrix, max_iter_em=5)

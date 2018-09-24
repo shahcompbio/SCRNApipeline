@@ -115,3 +115,16 @@ tmp/
 
 # Output
 *.txt
+
+# MRO output
+*.mro
+
+# RDATA
+.RData
+.Rhistory
+
+# Run Data
+run*/
+
+# BCL examples
+tiny*/

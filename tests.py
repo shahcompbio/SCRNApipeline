@@ -3,10 +3,14 @@ from interface.singlecellexperiment import SingleCellExperiment
 from interface.dropletutils import DropletUtils
 from software.cellassign import CellAssign
 from software.clonealign import CloneAlign
+from software.cellranger import CellRanger
 from utils.plotting import PlotRanks
 from pstats import Stats
 import cProfile
 import os
+import sys
+import glob
+
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -129,20 +133,32 @@ class TestSingleCellExperiment(unittest.TestCase):
     def test_cell_assign_em(self):
         ca = CellAssign()
 
+    @unittest.skip("Skipping...")
+    def test_unwrap(self):
+        example_rda = os.path.join(base_dir, "tests/example_sce.rda")
+        example_clonealign_fit = os.path.join(example_rda, "tests/example_clonealign_fit.rda")
+        sce = SingleCellExperiment.fromRData(example_rda)
+        print(type(sce))
+        del sce
+
+    @unittest.skip("Skipping...")
     def test_clone_align(self):
         example_rda = os.path.join(base_dir, "tests/example_sce.rda")
         example_clonealign_fit = os.path.join(example_rda, "tests/example_clonealign_fit.rda")
         sce = SingleCellExperiment.fromRData(example_rda)
         clonealigner = CloneAlign()
-        res = clonealigner.run(sce, example_clonealign_fit)
+        res = clonealigner.run(sce)
 
     @unittest.skip("Skipping...")
-    def test_bcl_conversion(self):
-        raise AssertionError("Not Implemeted")
+    def test_cellranger_mkfastq(self):
+        ranger = CellRanger()
+        ranger.mkfastq()
 
-    @unittest.skip("Skipping...")
     def test_cellranger_count(self):
-        raise AssertionError("Not Implemented")
+        fastq_directory = "/home/ceglian/data/R262_S3"
+        ranger = CellRanger()
+        ranger.count(fastq_directory)
+
 
     @unittest.skip("Skipping...")
     def test_cellranger_aggregate(self):
@@ -155,3 +171,4 @@ class TestSingleCellExperiment(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+    print("Tests Complete")

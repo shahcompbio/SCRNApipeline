@@ -48,11 +48,6 @@ class SingleCellExperiment(RS4):
     @classmethod
     def fromRS4(sce_class, rs4_object):
         sce = sce_class(rs4_object)
-        print("Class attr")
-        for fxn, ref in sce.__dict__.items():
-            print()
-            print("FXN:", fxn, ref)
-            print()
         sce.rowData = SummarizedExperimentInterface.rowData(sce)
         sce.colData = SummarizedExperimentInterface.colData(sce)
         sce.assays = SummarizedExperimentInterface.assays(sce)

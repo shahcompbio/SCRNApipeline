@@ -1,76 +1,66 @@
 import pypeliner.workflow
-import rpy2.robjects as robjects
+import pypeliner.app
+import pypeliner.managed
+from software.cellranger import CellRanger
+from software.tenx import TenX
+from interface.binarybasecall import BinaryBaseCall
+from interface.fastqdirectory import FastQDirectory
+from interface.tenxanalysis import TenxAnalysis
 import argparse
-from utils import converter
-
 
 def create_workflow():
 
+    bcl_directory = args["bcl_directory"]
+    #fastq_directory = args["fastq_directory"]
+
+    bcl_object = BinaryBaseCall(bcl_directory)
+    #fastq_object = FastQDirectory(fastq_directory)
+    #tenx_analysis = TenxAnalysis(fastq_object.out())
+
     workflow = pypeliner.workflow.Workflow()
-    #
-    # workflow.commandline(
-    #
-    # ),
-    #
-    # workflow.commandline(
-    #     name="cellassign",
-    # ),
 
+    workflow.transform (
+        name = "bcl_to_fastq",
+        func = CellRanger.mkfastq,
+        ret = pypeliner.managed.TempOutputObj("fastq_object"),
+        args = (
+            bcl_object,
+        )
+    )
 
+    workflow.transform (
+        name = "fastq_counts",
+        func = CellRanger.count,
+        ret = pypeliner.managed.TempOutputObj("tenx_analysis"),
+        args = (
+            pypeliner.managed.TempInputObj("fastq_object"),
+        )
+    )
 
-    # workflow.transform(
-    #     name='split_fastq',
-    #     func=split_file_byline,
-    #     args=(
-    #         pypeliner.managed.InputFile('/nicky/input.fastq'),
-    #         100,
-    #         pypeliner.managed.TempOutputFile('input.fastq', 'reads'),
-    #     )
-    # )
-    #
-    # workflow.commandline(
-    #     name='bwa_aln',
-    #     axes=('reads',),
-    #     args=(
-    #         'bwa', 'aln',
-    #         pypeliner.managed.InputFile("/nicky/genome.fa"),
-    #         pypeliner.managed.TempInputFile('input.fastq', 'reads'),
-    #         '>',
-    #         pypeliner.managed.TempOutputFile('tmp.sai','reads'),
-    #     )
-    # )
-    #
-    #
-    # workflow.commandline(
-    #     name='bwa_samse',
-    #     axes=('reads',),
-    #     args=(
-    #         'bwa', 'samse',
-    #         pypeliner.managed.InputFile('/nicky/genome.fa'),
-    #         pypeliner.managed.TempInputFile('tmp.sai','reads'),
-    #         pypeliner.managed.TempInputFile('input.fastq','reads'),
-    #         '>',
-    #         pypeliner.managed.TempOutputFile('output.sam','reads'),
-    #     )
-    # )
-    #
-    # workflow.transform(
-    #     name='merge_sam',
-    #     func=merge_file_byline,
-    #     args=(
-    #         pypeliner.managed.TempInputFile('output.sam', 'reads'),
-    #         pypeliner.managed.OutputFile('output.sam'),
-    #     )
-    # )
-    #
-    # workflow.transform(
-    #     name='filter_unmapped',
-    #     func=filter_unmapped,
-    #     args=(
-    #         pypeliner.managed.InputFile('output.sam'),
-    #         pypeliner.managed.OutputFile('aligned.sam'),
-    #     )
-    # )
+    workflow.transform (
+        name = "tenx_read10xcounts",
+        func = TenX.read10xCounts,
+        args = (
+            pypeliner.managed.TempInputObj("tenx_analysis"),
+        )
+    )
+
+    workflow.transform (
+        name = "tenx_barcoderanks",
+        func = TenX.barcodeRanks,
+        args = (
+            pypeliner.managed.TempInputObj("tenx_analysis")
+        )
+    )
+
+    workflow.transform (
+        name = "tenx_emptydrops",
+        func = TenX.emptyDrops,
+        args = (
+            pypeliner.managed.TempInputObj("tenx_analysis")
+        )
+    )
+
     return workflow
 
 
@@ -78,6 +68,8 @@ if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser()
     pypeliner.app.add_arguments(argparser)
+    argparser.add_argument('--bcl_directory', type=str, help='BaseCalls Illumina Directory')
+    argparser.add_argument('--fastq_directory', type=str, help='CellRanger Structured FastQ Output Directory')
     args = vars(argparser.parse_args())
     workflow = create_workflow()
     pyp = pypeliner.app.Pypeline(config=args)
