@@ -1,6 +1,6 @@
 import unittest
 from interface.singlecellexperiment import SingleCellExperiment
-from interface.dropletutils import DropletUtils
+from software.dropletutils import DropletUtils
 from software.cellassign import CellAssign
 from software.clonealign import CloneAlign
 from software.cellranger import CellRanger
@@ -154,6 +154,7 @@ class TestSingleCellExperiment(unittest.TestCase):
         ranger = CellRanger()
         ranger.mkfastq()
 
+    @unittest.skip("Skipping...")
     def test_cellranger_count(self):
         fastq_directory = "/home/ceglian/data/R262_S3"
         ranger = CellRanger()
