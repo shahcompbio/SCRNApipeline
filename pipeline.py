@@ -1,11 +1,18 @@
 import pypeliner.workflow
 import pypeliner.app
 import pypeliner.managed
+
 from software.cellranger import CellRanger
 from software.tenx import TenX
+from software.clonealign import CloneAlign
+from software.cellassign import CellAssign
+
 from interface.binarybasecall import BinaryBaseCall
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
+
+from utils.reporting import HTMLResults
+
 import argparse
 
 def create_workflow():
@@ -40,6 +47,7 @@ def create_workflow():
     workflow.transform (
         name = "tenx_read10xcounts",
         func = TenX.read10xCounts,
+        ret = pypeliner.managed.TempOutputObj("single_cell_experiment"),
         args = (
             pypeliner.managed.TempInputObj("tenx_analysis"),
         )
@@ -49,7 +57,7 @@ def create_workflow():
         name = "tenx_barcoderanks",
         func = TenX.barcodeRanks,
         args = (
-            pypeliner.managed.TempInputObj("tenx_analysis")
+            pypeliner.managed.TempInputObj("tenx_analysis"),
         )
     )
 
@@ -57,7 +65,37 @@ def create_workflow():
         name = "tenx_emptydrops",
         func = TenX.emptyDrops,
         args = (
-            pypeliner.managed.TempInputObj("tenx_analysis")
+            pypeliner.managed.TempInputObj("tenx_analysis"),
+        )
+    )
+
+    workflow.transform (
+        name = "clonealign",
+        func = CloneAlign.run,
+        ret = pypeliner.managed.TempOutputObj("clone_align_fit")
+        args = (
+            pypeliner.managed.TempInputObj("single_cell_experiment")
+        )
+    )
+
+    workflow.transform (
+        name = "cellasign",
+        func = CellAssign.run_em,
+        ret = pypeliner.managed.TempOutputObj("cell_assignments"),
+        args = (
+            pypeliner.managed.TempInputObj("single_cell_experiment")
+        )
+    )
+
+    workflow.transform (
+        name = "html_output",
+        func = HTMLResults.generate,
+        args = (
+            pypeliner.managed.TempInputObj("fastq_object")
+            pypeliner.managed.TempInputObj("ten_analysis"),
+            pypeliner.managed.TempInputObj("single_cell_experiment"),
+            pypeliner.managed.TempInputObj("clone_align_fit"),
+            pypeliner.managed.TempInputObj("cell_assignments"),
         )
     )
 

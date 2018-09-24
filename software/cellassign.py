@@ -12,3 +12,7 @@ class CellAssign(object):
             cellassign_em = SignatureTranslatedAnonymousPackage(string, "cellassign_em")
         except HTTPError:
             pass
+
+
+    def run_em(self, sce_experiment):
+        return None

@@ -8,6 +8,9 @@ class TenX(object):
     @staticmethod
     def read10xCounts(tenx_analysis):
         utils = DropletUtils()
+        counts = utils.read10xCounts(tenx_analysis.raw_gene_bc_matrices('hg19'))
+        sce = SingleCellExperiment.fromRS4(counts)
+        return sce
 
     @staticmethod
     def barcodeRanks(tenx_analysis):

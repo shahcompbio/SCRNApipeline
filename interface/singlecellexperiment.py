@@ -40,6 +40,10 @@ Inherited from BiocGenerics
 
 class SingleCellExperiment(RS4):
 
+    def __eq__(self, other):
+        # TODO better assertion of equal objects
+        return self.assayNames == other.assayNames
+
     @classmethod
     def fromRData(sce_class, rdata):
         rs4_object = robjects.r[r.load(rdata)[0]]
