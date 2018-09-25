@@ -141,7 +141,6 @@ class TestSingleCellExperiment(unittest.TestCase):
         print(type(sce))
         del sce
 
-    @unittest.skip("Skipping...")
     def test_clone_align(self):
         example_rda = os.path.join(base_dir, "tests/example_sce.rda")
         example_clonealign_fit = os.path.join(example_rda, "tests/example_clonealign_fit.rda")

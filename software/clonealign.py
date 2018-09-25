@@ -14,7 +14,8 @@ import gc
 
 class CloneAlign(object):
 
-    def __init__(self):
+    @staticmethod
+    def load_methods():
         # decode = lambda x: x.decode("utf-8")
         # github_url = urllib.request.urlopen('https://raw.githubusercontent.com/kieranrcampbell/clonealign/master/R/clonealign.R')
         # code = '\n'.join(map(decode, github_url.readlines()))
@@ -28,7 +29,7 @@ class CloneAlign(object):
         # code = "library('glue')\n" + code
         # code = "library('reticulate')\n" + code
         code = open('/home/ceglian/codebase/clonealign/R/clonealign.R',"r").read()
-        self.clonealign = SignatureTranslatedAnonymousPackage(code, "clonealign")
+        return SignatureTranslatedAnonymousPackage(code, "clonealign")
 
     @staticmethod
     def loadFitMatrix(rdata_path):
@@ -40,14 +41,17 @@ class CloneAlign(object):
                     print("Coltype",type(col))
         return None
 
+    @staticmethod
     def dumpFitMatrix(rdata_path):
         pass
 
-    def run(self, sce_experiment):
+    @staticmethod
+    def run(sce_experiment):
         # ReticulateInterface = importr('reticulate')
         # TensorFlowInterface = importr('tensorflow')
         # #TensorFlowInterface.install_tensorflow()
         # CloneAlignInterface = importr('clonealign')
+        clonealign = CloneAlign.load_methods()
         rownames, nrows, data = sce_experiment.rowData
         _, ncols, _ = sce_experiment.colData
         df = dict()
@@ -59,4 +63,4 @@ class CloneAlign(object):
         df = pandas.DataFrame.from_dict(df)
         df.set_index(["names"])
         copy_number_matrix = pandas2ri.py2ri(df)
-        return self.clonealign.clonealign(sce_experiment, copy_number_matrix, max_iter_em=5)
+        return clonealign.clonealign(sce_experiment, copy_number_matrix, max_iter_em=5)
