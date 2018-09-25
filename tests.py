@@ -11,7 +11,6 @@ import os
 import sys
 import glob
 
-
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 class TestSingleCellExperiment(unittest.TestCase):
