@@ -4,10 +4,11 @@ import random
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
 
+from utils import config
+
+
 class CellRanger(object):
 
-    def __init__(self):
-        pass
 
     @staticmethod
     def cmd(command, args):
@@ -15,6 +16,8 @@ class CellRanger(object):
         for flag, value in args.items():
             cmd.append("--{}".format(flag))
             cmd.append(value)
+        cmd.append("--disable-ui")
+        cmd.append("--jobmode=lsf") #if running local can submit directly to lsf
         return cmd
 
     @staticmethod
@@ -33,13 +36,25 @@ class CellRanger(object):
         args = dict()
         args["id"] = fastq_object.id
         args["fastqs"] = fastq_object.path
-        args["sample"] = "hgmm_100"
-        args["transcriptome"] = "/juno/work/shah/ceglian/refdata/hg19_and_mm10"
-        args["lanes"] = "1"
-        args["chemistry"] = "SC3P_auto"
+        args["sample"] = fastq_object.samples.sampleid[0]
+        args["transcriptome"] = config.reference
+        args["lanes"] = fastq_object.samples.lane[0]
+        #args["chemistry"] = "SC3P_auto"
         cmd = CellRanger.cmd("count",args)
+        print(" ".join(cmd))
         subprocess.call(cmd)
         return TenxAnalysis(fastq_object.out())
+
+    @staticmethod
+    def analyze(tenx_object):
+        args = dict()
+        args["id"] = tenx_object.id
+        args["matrix"] = tenx_object.matrix
+        args["params"] = tenx_object.params
+
+        cmd = CellRanger.cmd("reanalyze", args)
+        subprocess.call(cmd)
+        return tenx_object
 
 
 

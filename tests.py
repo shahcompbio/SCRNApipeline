@@ -1,4 +1,5 @@
 import unittest
+from rpy2.robjects import r, pandas2ri
 from interface.singlecellexperiment import SingleCellExperiment
 from software.dropletutils import DropletUtils
 from software.cellassign import CellAssign
@@ -24,6 +25,17 @@ class TestSingleCellExperiment(unittest.TestCase):
         p.strip_dirs()
         p.sort_stats('cumtime')
         p.print_stats(12)
+
+
+    def test_import(self):
+        import importlib
+        import pypeliner.workflow
+        import pypeliner.app
+        import pypeliner.managed
+        exec_queue_name = 'pypeliner.execqueue.qsub.LsfJobQueue'
+        exec_queue_class_name = exec_queue_name.split('.')[-1]
+        exec_queue_module_name = exec_queue_name[:-len(exec_queue_class_name)-1]
+        exec_queue_module = importlib.import_module(exec_queue_module_name)
 
     @unittest.skip("Skipping...")
     def test_load_rdata(self):
@@ -130,16 +142,19 @@ class TestSingleCellExperiment(unittest.TestCase):
 
     @unittest.skip("Skipping...")
     def test_cell_assign_em(self):
-        ca = CellAssign()
+        example_rda = os.path.join(base_dir, "tests/example_sce.rda")
+        sce = SingleCellExperiment.fromRData(example_rda)
+        cellassigner = CellAssign()
+        res = cellassigner.run_em(sce)
 
     @unittest.skip("Skipping...")
     def test_unwrap(self):
         example_rda = os.path.join(base_dir, "tests/example_sce.rda")
-        example_clonealign_fit = os.path.join(example_rda, "tests/example_clonealign_fit.rda")
         sce = SingleCellExperiment.fromRData(example_rda)
         print(type(sce))
         del sce
 
+    @unittest.skip("Skipping...")
     def test_clone_align(self):
         example_rda = os.path.join(base_dir, "tests/example_sce.rda")
         example_clonealign_fit = os.path.join(example_rda, "tests/example_clonealign_fit.rda")
