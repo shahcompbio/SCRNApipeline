@@ -43,32 +43,6 @@ Inherited from BiocGenerics
     sizeFactors
 """
 
-class ExpressionSet(RS4):
-
-    def _exprs_get(self):
-        return self.slots['assayData']
-    def _exprs_set(self, value):
-        self.slots['assayData'] = value
-    exprs = property(_exprs_get, _exprs_set, None, "R attribute `exprs`")
-
-def ri2ro_s4(obj):
-    if 'ExpressionSet' in obj.rclass:
-        res = ExpressionSet(obj)
-    else:
-        res = robj
-    return res
-
-my_converter = Converter('ExpressionSet-aware converter',
-                         template=default_converter)
-my_converter.ri2ro.register(SexpS4, ri2ro_s4)
-
-def ExpressionSetFactory():
-    with localconverter(my_converter) as cv:
-        eset = BiobaseInterface.ExpressionSet()
-        print(type(eset))
-    return eset
-
-
 class SingleCellExperiment(RS4):
 
     def __eq__(self, other):
@@ -78,11 +52,19 @@ class SingleCellExperiment(RS4):
     @classmethod
     def fromRData(sce_class, rdata):
         rs4_object = robjects.r[r.load(rdata)[0]]
-        return sce_class.fromRS4(rs4_object)
+        sce = sce_class.fromRS4(rs4_object)
+        sce.rs4 = rs4_object
+        return sce
+
+    def asSummarizedExperiment(self):
+        data = robjects.r["SummarizedExperiment"](self.rs4)
+        data.slots["assays"] = SummarizedExperimentInterface.assays(self.rs4)
+        return data
 
     @classmethod
     def fromRS4(sce_class, rs4_object):
         sce = sce_class(rs4_object)
+        sce.rs4 = rs4_object
         sce.rowData = SummarizedExperimentInterface.rowData(sce)
         sce.colData = SummarizedExperimentInterface.colData(sce)
         sce.assays = SummarizedExperimentInterface.assays(sce)
@@ -170,10 +152,9 @@ class SingleCellExperiment(RS4):
 
     @staticmethod
     def CSRtoDCG(sparse_matrix):
-        #data = robjects.DataFrame(sparse_matrix.toarray().flatten())
-        #nrows, ncols = sparse_matrix.shape
-        data = BiobaseInterface.ExpressionSet()
-        return data #MatrixInterface.Matrix(data, nrow=nrows, ncol=ncols, sparse=True)
+        data = robjects.DataFrame(sparse_matrix.toarray().flatten())
+        nrows, ncols = sparse_matrix.shape
+        return MatrixInterface.Matrix(data, nrow=nrows, ncol=ncols, sparse=True)
 
     @staticmethod
     def CSRtoNumericMatrix(sparse_matrix):
@@ -194,8 +175,6 @@ class SingleCellExperiment(RS4):
             elif type(assay) == robjects.vectors.Matrix:
                 self._assays[label] = csr_matrix(pandas2ri.ri2py(assay))
 
-    def annotate(self):
-        pass
 
 
 if __name__ == '__main__':

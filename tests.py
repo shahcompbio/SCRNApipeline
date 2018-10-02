@@ -26,7 +26,7 @@ class TestSingleCellExperiment(unittest.TestCase):
         p.sort_stats('cumtime')
         p.print_stats(12)
 
-
+    @unittest.skip("Skipping...")
     def test_import(self):
         import importlib
         import pypeliner.workflow
@@ -140,9 +140,8 @@ class TestSingleCellExperiment(unittest.TestCase):
     def test_marker_detect(self):
         raise AssertionError("Not Implemented")
 
-    @unittest.skip("Skipping...")
     def test_cell_assign_em(self):
-        example_rda = os.path.join(base_dir, "tests/example_sce.rda")
+        example_rda = os.path.join(base_dir, "tests/cell_assign_test.RData")
         sce = SingleCellExperiment.fromRData(example_rda)
         cellassigner = CellAssign()
         res = cellassigner.run_em(sce)

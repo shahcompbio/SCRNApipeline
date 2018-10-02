@@ -1,35 +1,32 @@
-wget ftp://ftp.ensembl.org/pub/grch37/release-84/fasta/homo_sapiens/dna/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz
-gunzip Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz
+wget ftp://ftp.ensembl.org/pub/release-84/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
 
 
-wget ftp://ftp.ensembl.org/pub/grch37/release-84/gtf/homo_sapiens/Homo_sapiens.GRCh37.82.gtf.gz
-gunzip Homo_sapiens.GRCh37.82.gtf.gz
+wget ftp://ftp.ensembl.org/pub/release-84/gtf/homo_sapiens/Homo_sapiens.GRCh38.84.gtf.gz
+gunzip Homo_sapiens.GRCh38.84.gtf.gz
 
 
-wget ftp://ftp.ensembl.org/pub/release-84/fasta/mus_musculus/dna/Mus_musculus.GRCm38.dna.primary_assembly.fa.gz
-gunzip Mus_musculus.GRCm38.dna.primary_assembly.fa.gz
-
-
-wget ftp://ftp.ensembl.org/pub/release-84/gtf/mus_musculus/Mus_musculus.GRCm38.84.gtf.gz
-gunzip Mus_musculus.GRCm38.84.gtf.gz
-
-
-cellranger mkgtf Homo_sapiens.GRCh37.82.gtf Homo_sapiens.GRCh37.82.filtered.gtf \
+cellranger mkgtf Homo_sapiens.GRCh38.84.gtf Homo_sapiens.GRCh38.84.filtered.gtf \
                  --attribute=gene_biotype:protein_coding \
                  --attribute=gene_biotype:lincRNA \
-                 --attribute=gene_biotype:antisense
+                 --attribute=gene_biotype:antisense \
+                 --attribute=gene_biotype:IG_LV_gene \
+                 --attribute=gene_biotype:IG_V_gene \
+                 --attribute=gene_biotype:IG_V_pseudogene \
+                 --attribute=gene_biotype:IG_D_gene \
+                 --attribute=gene_biotype:IG_J_gene \
+                 --attribute=gene_biotype:IG_J_pseudogene \
+                 --attribute=gene_biotype:IG_C_gene \
+                 --attribute=gene_biotype:IG_C_pseudogene \
+                 --attribute=gene_biotype:TR_V_gene \
+                 --attribute=gene_biotype:TR_V_pseudogene \
+                 --attribute=gene_biotype:TR_D_gene \
+                 --attribute=gene_biotype:TR_J_gene \
+                 --attribute=gene_biotype:TR_J_pseudogene \
+                 --attribute=gene_biotype:TR_C_gene
 
 
-cellranger mkgtf Mus_musculus.GRCm38.84.gtf Mus_musculus.GRCm38.84.filtered.gtf \
-                 --attribute=gene_biotype:protein_coding \
-                 --attribute=gene_biotype:lincRNA \
-                 --attribute=gene_biotype:antisense
-
-
-cellranger mkref --genome=hg19 \
-                 --fasta=Homo_sapiens.GRCh37.dna.primary_assembly.fa \
-                 --genes=Homo_sapiens.GRCh37.82.filtered.gtf \
-                 --genome=mm10 \
-                 --fasta=Mus_musculus.GRCm38.dna.primary_assembly.fa \
-                 --genes=Mus_musculus.GRCm38.84.filtered.gtf \
+cellranger mkref --genome=GRCh38 \
+                 --fasta=Homo_sapiens.GRCh38.dna.primary_assembly.fa \
+                 --genes=Homo_sapiens.GRCh38.84.filtered.gtf \
                  --ref-version=1.2.0

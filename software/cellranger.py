@@ -6,9 +6,7 @@ from interface.tenxanalysis import TenxAnalysis
 
 from utils import config
 
-
 class CellRanger(object):
-
 
     @staticmethod
     def cmd(command, args):
@@ -41,20 +39,19 @@ class CellRanger(object):
         args["lanes"] = fastq_object.samples.lane[0]
         #args["chemistry"] = "SC3P_auto"
         cmd = CellRanger.cmd("count",args)
-        print(" ".join(cmd))
         subprocess.call(cmd)
         return TenxAnalysis(fastq_object.out())
 
     @staticmethod
-    def analyze(tenx_object):
+    def reanalyze(tenx_object):
         args = dict()
         args["id"] = tenx_object.id
         args["matrix"] = tenx_object.matrix
         args["params"] = tenx_object.params
-
         cmd = CellRanger.cmd("reanalyze", args)
         subprocess.call(cmd)
         return tenx_object
+
 
 
 
