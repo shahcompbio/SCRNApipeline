@@ -5,6 +5,10 @@ from rpy2.rinterface import RRuntimeError
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.genemarkermatrix import GeneMarkerMatrix
 import numpy
+import os
+
+
+os.environ["RETICULATE_PYTHON"] = "/usr/local/bin/python3"
 
 CellAssignInterface = importr("cellassign")
 BiobaseInterface    = importr("Biobase")
