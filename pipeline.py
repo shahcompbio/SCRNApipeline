@@ -108,27 +108,28 @@ def create_workflow():
                 fastq,
             )
         )
-    #
-    # tenx = None
-    # if tenx_analysis != None and rdata == None:
-    #     tenx = TenxAnalysis(tenx_analysis)
-    # elif tenx_analysis == None and rdata == None:
-    #     tenx = pypeliner.managed.TempInputObj("tenx_analysis")
-    # if tenx != None:
-    #     workflow.transform (
-    #         name = "tenx_read10xcounts",
-    #         func = TenX.read10xCounts,
-    #         ret = pypeliner.managed.TempOutputObj("single_cell_experiment"),
-    #         args = (
-    #             tenx,
-    #         )
-    #     )
-    #
-    # if rdata != None:
-    #     single_cell_experiment = TenxAnalysis.from_rdata(rdata)
-    # else:
-    #     single_cell_experiment = pypeliner.managed.TempInputObj("single_cell_experiment")
 
+    tenx = None
+    if tenx_analysis != None and rdata == None:
+        tenx = TenxAnalysis(tenx_analysis)
+    elif tenx_analysis == None and rdata == None:
+        tenx = pypeliner.managed.TempInputObj("tenx_analysis")
+    if tenx != None:
+        workflow.transform (
+            name = "tenx_read10xcounts",
+            func = TenX.read10xCounts,
+            ret = pypeliner.managed.TempOutputObj("single_cell_experiment"),
+            args = (
+                tenx,
+            )
+        )
+
+    if rdata != None:
+        single_cell_experiment = TenxAnalysis.from_rdata(rdata)
+    else:
+        single_cell_experiment = pypeliner.managed.TempInputObj("single_cell_experiment")
+
+    #
     # workflow.transform (
     #     name = "tenx_barcoderanks",
     #     func = TenX.barcodeRanks,
@@ -145,15 +146,16 @@ def create_workflow():
     #     )
     # )
 
-    # workflow.transform (
-    #     name = "clonealign",
-    #     func = CloneAlign.run,
-    #     ret = pypeliner.managed.TempOutputObj("clone_align_fit"),
-    #     args = (
-    #         single_cell_experiment,
-    #     )
-    # )
-    #
+    workflow.transform (
+        name = "clonealign",
+        func = CloneAlign.run,
+        ret = pypeliner.managed.TempOutputObj("clone_align_fit"),
+        args = (
+            single_cell_experiment,
+        )
+    )
+
+    # """
     # workflow.transform (
     #     name = "cellasign",
     #     func = CellAssign.run_em,
@@ -171,7 +173,7 @@ def create_workflow():
     #         single_cell_experiment,
     #     )
     # )
-
+    #
     # workflow.transform (
     #     name = "html_output",
     #     func = HTMLResults.generate,
@@ -184,6 +186,7 @@ def create_workflow():
     #         pypeliner.managed.TempInputObj("scviz_dim_reduction"),
     #     )
     # )
+    """
 
     return workflow
 

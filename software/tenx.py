@@ -1,5 +1,6 @@
 from software.dropletutils import DropletUtils
 from interface.singlecellexperiment import SingleCellExperiment
+from utils import config
 
 class TenX(object):
 
@@ -9,7 +10,7 @@ class TenX(object):
     @staticmethod
     def read10xCounts(tenx_analysis):
         utils = DropletUtils()
-        counts = utils.read10xCounts(tenx_analysis.raw_matrices('hg19'))
+        counts = utils.read10xCounts(tenx_analysis.raw_matrices(config.build))
         sce = SingleCellExperiment.fromRS4(counts)
         return sce
 

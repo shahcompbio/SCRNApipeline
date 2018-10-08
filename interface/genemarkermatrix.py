@@ -5,21 +5,26 @@ from rpy2.robjects.methods import RS4
 from rpy2.robjects.packages import importr
 
 import pandas
+import numpy
 
 # SingleCellExperimentInterface = importr('')
 
 class GeneMarkerMatrix(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, genes, cells):
+        self.genes = genes
+        self.cells = cells
 
-    def load_example(self):
+    def matrix(self):
         pandas2ri.activate()
         matrix = robjects.r[r.load("./tests/gene_marker_matrix.rdata")[0]]
-        dataframe = []
-        gene_names = ["Gene{}".format(i) for i in range(10)]
-        for gene, row in zip(gene_names, matrix):
-            dataframe.append((gene, list(map(int,list(row)))))
-        dataframe = pandas.DataFrame.from_items(dataframe, orient="index", columns=["Cell1","Cell2"])
-        dataframe = pandas2ri.py2ri(dataframe)
-        return robjects.r.matrix(dataframe)
+        print("RHO",matrix.shape)
+        return matrix
+        # dataframe = []
+        # for gene, row in zip(self.genes, matrix):
+        #     dataframe.append((gene, list(map(int,list(row)))))
+        # dataframe = pandas.DataFrame.from_items(dataframe, orient="index", columns=["Group1","Group2"])
+        # dataframe = pandas2ri.py2ri(dataframe)
+        # return robjects.r.matrix(dataframe)
+        # print(ret)
+        # return ret

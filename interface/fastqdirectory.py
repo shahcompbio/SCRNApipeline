@@ -31,7 +31,7 @@ class FastQDirectory(object):
     def __init__(self, directory):
 
         self.path = directory
-        self.id = "run_{}".format(random.randint(0,100000))
+        self.id = "run_{}_lsf".format(random.randint(0,100000))
         self.output = os.path.join(self.path, "{}/outs/".format(self.id))
         self.samples = self.get_samples(directory)
 

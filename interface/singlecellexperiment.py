@@ -61,6 +61,11 @@ class SingleCellExperiment(RS4):
         data.slots["assays"] = SummarizedExperimentInterface.assays(self.rs4)
         return data
 
+    def asExpressionSet(self):
+        sme = self.asSummarizedExperiment()
+        data = robjects.r["ExpressionSet"](assayData=sme.slots["assays"])
+        return data
+        
     @classmethod
     def fromRS4(sce_class, rs4_object):
         sce = sce_class(rs4_object)
@@ -155,11 +160,6 @@ class SingleCellExperiment(RS4):
         data = robjects.DataFrame(sparse_matrix.toarray().flatten())
         nrows, ncols = sparse_matrix.shape
         return MatrixInterface.Matrix(data, nrow=nrows, ncol=ncols, sparse=True)
-
-    @staticmethod
-    def CSRtoNumericMatrix(sparse_matrix):
-        data = robjects.IntVector(sparse_matrix.toarray().flatten())
-        nrows, ncols = sparse_matrix.shape
 
     @assays.setter
     def assays(self, rs4_assays):

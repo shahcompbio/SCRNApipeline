@@ -1,10 +1,12 @@
 import unittest
 from rpy2.robjects import r, pandas2ri
 from interface.singlecellexperiment import SingleCellExperiment
+from interface.genemarkermatrix import GeneMarkerMatrix
 from software.dropletutils import DropletUtils
 from software.cellassign import CellAssign
 from software.clonealign import CloneAlign
 from software.cellranger import CellRanger
+from software.scviz import SCViz
 from utils.plotting import PlotRanks
 from pstats import Stats
 import cProfile
@@ -129,12 +131,20 @@ class TestSingleCellExperiment(unittest.TestCase):
         raise AssertionError("Not Implemented")
 
     @unittest.skip("Skipping...")
-    def test_dim_reduction_scviz(self):
-        raise AssertionError("Not Implemented")
+    def test_scviz_train(self):
+        scviz_runner = SCViz()
+        matrix = "./tests/bipolar_pca100.tsv"
+        outdir = "./tests/scvis_output/"
+        labels = "./tests/bipolar_label.tsv"
+        scviz_runner.train(matrix, outdir, labels)
 
     @unittest.skip("Skipping...")
-    def test_scviz_dim_reduction(self):
-        raise AssertionError("Not Implemented")
+    def test_scvis_map(self):
+        scviz_runner = SCViz()
+        matrix = "./tests/retina_pca100_bipolar.tsv"
+        outdir = "./tests/scvis_output_bipolar/"
+        embedding = "./tests/scvis_output/model/perplexity_10_regularizer_0.001_batch_size_512_learning_rate_0.01_latent_dimension_2_activation_ELU_seed_1_iter_5400.ckpt"
+        scviz_runner.map(matrix, outdir, embedding)
 
     @unittest.skip("Skipping...")
     def test_marker_detect(self):
@@ -144,7 +154,8 @@ class TestSingleCellExperiment(unittest.TestCase):
         example_rda = os.path.join(base_dir, "tests/cell_assign_test.RData")
         sce = SingleCellExperiment.fromRData(example_rda)
         cellassigner = CellAssign()
-        res = cellassigner.run_em(sce)
+        rho = GeneMarkerMatrix(genes=["Gene161", "Gene447", "Gene519", "Gene609", "Gene677", "Gene750", "Gene754", "Gene860", "Gene929", "Gene979"], cells=["Groups1","Groups2"])
+        res = cellassigner.run_em(sce, rho)
 
     @unittest.skip("Skipping...")
     def test_unwrap(self):
