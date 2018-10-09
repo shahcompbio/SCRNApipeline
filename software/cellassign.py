@@ -36,5 +36,19 @@ class CellAssign(object):
         sme = sce_experiment.asSummarizedExperiment()
         matrix = numpy.transpose(rows.toarray())
         s = EdgeRInterface.calcNormFactors(matrix,method="TMM")
+        _matrix = []
+        for row in matrix:
+            if sum(row) != 0:
+                row = list(row)
+                print(row)
+                _matrix.append(row)
+        matrix = numpy.array(_matrix)
+        _matrix = []
+        for col in numpy.transpose(matrix):
+            if sum(col) != 0:
+                _matrix.append(list(col))
+        matrix = numpy.array(_matrix)
+        matrix = numpy.transpose(matrix)
+
         assert matrix.shape[1] == rho_binary_matrix.shape[0], "Dimensions between rho and expression matrix do not match!"
         fit = CellAssignInterface.cellassign_em(matrix, rho_binary_matrix)
