@@ -24,6 +24,7 @@ SummarizedExperimentInterface = importr('SummarizedExperiment')
 BiocGenericsInterface         = importr('BiocGenerics')
 MatrixInterface               = importr('Matrix')
 BiobaseInterface              = importr('Biobase')
+# RangedSummarizedExperimentInterface = importr("RangedSummarizedExperiment")
 
 """
 SingleCellExperiment
@@ -65,7 +66,7 @@ class SingleCellExperiment(RS4):
         sme = self.asSummarizedExperiment()
         data = robjects.r["ExpressionSet"](assayData=sme.slots["assays"])
         return data
-        
+
     @classmethod
     def fromRS4(sce_class, rs4_object):
         sce = sce_class(rs4_object)
@@ -75,6 +76,8 @@ class SingleCellExperiment(RS4):
         sce.assays = SummarizedExperimentInterface.assays(sce)
         sce.reducedDims = SingleCellExperimentInterface.reducedDims(sce)
         sce.sizeFactors = BiocGenericsInterface.sizeFactors(sce)
+        sce.rownames = robjects.r["rownames"](sce)
+        sce.colnames = robjects.r["colnames"](sce)
         return sce
 
     @classmethod
@@ -88,27 +91,16 @@ class SingleCellExperiment(RS4):
             return unpacked_object
         for slot in rs4_object.slotnames():
             value = rs4_object.slots[slot]
-            if type(value) == rinterface.RNULLType: continue
-            if type(value) == robjects.vectors.ListVector:
-                list_array = list()
-                for x in value:
-                    list_array.append(pandas2ri.ri2py(x))
-                unpacked_object[slot] = list_array
+            if type(value) == rinterface.RNULLType:
+                continue
+            elif type(value) == robjects.vectors.ListVector:
+                if value.names:
+                    value = dict(zip(value.names, map(list,list(value))))
+                    for column, data in value.items():
+                        unpacked_object[column] = data
             else:
-                unpacked_object[slot] = list(value)
+                unpacked_object[slot] = list(value)[0]
         return unpacked_object
-
-    @staticmethod
-    def get_axis(axis_data):
-        assert "nrows" in axis_data, "Axis requires nrows"
-        assert "listData" in axis_data, "Axis requires listData"
-        nrows = axis_data["nrows"][0]
-        data = axis_data["listData"]
-        if "rownames" not in axis_data:
-            names = map(str,list(range(nrows)))
-        else:
-            names = axis_data["rownames"]
-        return names, nrows, data
 
     @property
     def assayNames(self):
@@ -126,7 +118,7 @@ class SingleCellExperiment(RS4):
 
     @property
     def rowData(self):
-        return SingleCellExperiment.get_axis(self._rowData)
+        return self._rowData
 
     @rowData.setter
     def rowData(self, rs4_rowData):
@@ -134,7 +126,7 @@ class SingleCellExperiment(RS4):
 
     @property
     def colData(self):
-        return SingleCellExperiment.get_axis(self._colData)
+        return self._colData
 
     @colData.setter
     def colData(self, rs4_colData):

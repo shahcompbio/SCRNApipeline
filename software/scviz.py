@@ -17,7 +17,9 @@ class SCViz(object):
         args["out_dir"] = directory
         args["data_label_file"] = labels
         cmd = SCViz.cmd("train", args)
+        print("Running...")
         subprocess.call(cmd)
+        print("Finished!")
 
     @staticmethod
     def map(matrix, directory, embedding):
@@ -25,5 +27,5 @@ class SCViz(object):
         args["data_matrix_file"] = matrix
         args["out_dir"] = directory
         args["pretrained_model_file"] = embedding
-        cmd = SCViz.cmd("map",args) 
+        cmd = SCViz.cmd("map",args)
         subprocess.call(cmd)

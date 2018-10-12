@@ -96,8 +96,20 @@ def create_workflow():
     if bcl_directory != None or fastq_directory != None:
         if fastq_directory != None:
             fastq = FastQDirectory(fastq_directory)
-            # fastqs = list()
-            # for sample_sheet in glob.iglob(os.path.join(fastq_directory, "**/*.csv")):
+        else:
+            fastq = pypeliner.managed.TempInputObj("fastq_object")
+        workflow.transform (
+            name = "fastqc",
+            func = FastQC.run,
+            ret = pypeliner.managed.TempOutputObj("qc_report")
+            args = (
+                fastq,
+            )
+        )
+
+    if bcl_directory != None or fastq_directory != None:
+        if fastq_directory != None:
+            fastq = FastQDirectory(fastq_directory)
         else:
             fastq = pypeliner.managed.TempInputObj("fastq_object")
         workflow.transform (
@@ -128,6 +140,8 @@ def create_workflow():
         single_cell_experiment = TenxAnalysis.from_rdata(rdata)
     else:
         single_cell_experiment = pypeliner.managed.TempInputObj("single_cell_experiment")
+
+
 
     #
     # workflow.transform (

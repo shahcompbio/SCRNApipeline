@@ -11,11 +11,24 @@ import numpy
 
 class GeneMarkerMatrix(object):
 
-    def __init__(self, genes, cells):
-        self.genes = genes
-        self.cells = cells
+    def __init__(self, marker_list):
+        self.indicator = []
+        self.genes = list(set([gene for genelist in marker_list.values() for gene in genelist]))
+        self.cells = marker_list.keys()
+        for cell in self.cells:
+            marker_genes = []
+            for gene in self.genes:
+                if gene in marker_list[cell]:
+                    marker_genes.append(1)
+                else:
+                    marker_genes.append(0)
+            self.indicator.append(marker_genes)
+        self.indicator = numpy.matrix(self.indicator)
 
     def matrix(self):
+        return numpy.transpose(self.indicator)
+
+    def matrix_from_rdata(self, rdata):
         pandas2ri.activate()
         matrix = robjects.r[r.load("./tests/gene_marker_matrix.rdata")[0]]
         print("RHO",matrix.shape)
