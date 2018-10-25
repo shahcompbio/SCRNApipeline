@@ -1,0 +1,9 @@
+{'CD8_naive/cm' : ["CD8A", "CD8B", "CD3D", "CD3E", "SELL", "IL7R", "CCR7"],
+ 'CD8_em': ["CD8A", "CD8B", "CD3D", "CD3E", "CCL5", "IL7R"],
+ 'CD8_eff': ["CD8A", "CD8B", "CD3D", "CD3E", "CCL5", "GZMA", "PRF1"],
+ 'CD4_naive/cm': ["CD3D", "CD3E", "CD4", "SELL", "IL7R", "CCR7"],
+ 'CD4_cm': ["CD3D", "CD3E", "CD4", "TCF7", "SELL", "ANXA1", "CD69", "IL7R", "IL2RA", "CD40LG", "FAS", "CD99"],
+ 'CD4_em': ["CD3D", "CD3E", "CD4", "ANXA1", "CD69", "IL7R", "IL2RA", "CD40LG", "FAS", "CD99"],
+ 'Treg': ["CD3D", "CD3E", "CD4", "FOXP3", "IL2RA", "SELL"],
+ 'B cells': ["CD79A", "MS4A1", "IGLC2", "IGKC", "IGLC3"],
+ 'Macrophages': ["AIF1", "LYZ"]}
