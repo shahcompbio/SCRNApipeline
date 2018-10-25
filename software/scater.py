@@ -43,3 +43,6 @@ class Scater(object):
     def normalizeExprs(self, sce):
         res = self._normalizeExprs(sce)
         return SingleCellExperiment.fromRS4(res)
+
+    def save(self, filename, plot):
+        robjects.r.ggsave(filename=filename, plot=plot)

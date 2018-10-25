@@ -2,6 +2,7 @@ import random
 import os
 import glob
 import collections
+import shutil
 
 class SampleSheet(object):
 
@@ -14,6 +15,7 @@ class SampleSheet(object):
                 for attr, value in zip(attribute_names, row.split(",")):
                     attributes[attr].append(value)
             for attr, value in attributes.items():
+                print(attr.lower(), value)
                 setattr(self, attr.lower(), value)
 
 
@@ -28,12 +30,13 @@ class SampleSheet(object):
 
 class FastQDirectory(object):
 
-    def __init__(self, directory):
-
+    def __init__(self, directory, prefix, output):
         self.path = directory
-        self.id = "run_{}_lsf".format(random.randint(0,100000))
-        self.output = os.path.join(self.path, "{}/outs/".format(self.id))
+        self.id = "run_{}_lsf".format(prefix)
         self.samples = self.get_samples(directory)
+        self.output = output
+        self.results = os.path.join(output, "{}/outs/".format(self.id))
+        self.completed = False
 
     def get_samples(self, directory):
         sheets = glob.glob(os.path.join(directory, "*.csv"))
@@ -43,9 +46,25 @@ class FastQDirectory(object):
             sample_sheet += SampleSheet(filename=sheet)
         return sample_sheet
 
+    def get_fastqs(self):
+        return list(glob.glob(os.path.join(self.path,"*.fastq*")))
+
+    def has_qc(self):
+        dir = os.path.join(self.output,"fastqc")
+        _fastqs = self.get_fastqs()
+        not_complete = []
+        for fastq in _fastqs:
+            sample = os.path.splitext(os.path.splitext(os.path.split(fastq)[1])[0])[0]
+            html = os.path.join(dir,"{}_fastqc.html".format(sample))
+            if not os.path.exists(html):
+                return False
+        return True
 
     def __eq__(self, other):
         return self.path == self.other
 
-    def out(self):
-        return self.output
+    def check_status(self):
+        filtered_matrices = os.path.join(self.results, "filtered_gene_bc_matrices_h5.h5")
+        print(filtered_matrices)
+        self.completed = os.path.exists(filtered_matrices)
+        return self.completed

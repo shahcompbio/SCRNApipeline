@@ -39,7 +39,9 @@ Example:
 
 """
 
-
+import argparse
+import glob
+import os
 
 import pypeliner.workflow
 import pypeliner.app
@@ -47,163 +49,191 @@ import pypeliner.managed
 
 from software.cellranger import CellRanger
 from software.tenx import TenX
-from software.clonealign import CloneAlign
 from software.cellassign import CellAssign
+from software.clonealign import CloneAlign
 from software.scviz import SCViz
+from software.fastqc import FastQC
 
 from interface.binarybasecall import BinaryBaseCall
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
+from interface.qcreport import QCReport
+from interface.genemarkermatrix import GeneMarkerMatrix
 
 from utils.reporting import HTMLResults
+from utils.config import *
+from utils.export import exportRMD
 
-import argparse
+
+
+def create_run_workflow(subprefix, output, bcl_directory, fastq_directory):
+
+    workflow = pypeliner.workflow.Workflow()
+
+    bcl = None
+    fastq = None
+    tenx = None
+    qcreport = QCReport(output)
+    qcscript = qcreport.generate_script()
+
+    try:
+        os.makedirs(fastqc_output)
+    except Exception as e:
+        pass
+
+    if bcl_directory:
+        bcl = BinaryBaseCall(bcl_directory)
+        workflow.transform (
+            name = "{}_cellranger_mkfastq".format(subprefix),
+            func = CellRanger.mkfastq,
+            ret = pypeliner.managed.TempOutputObj("fastq_object_{}".format(subprefix)),
+            args = (
+                bcl,
+            )
+        )
+
+    if fastq_directory != None:
+        fastq = FastQDirectory(fastq_directory, subprefix, output)
+    else:
+        fastq = pypeliner.managed.TempInputObj("fastq_object_{}".format(subprefix))
+    if not fastq.has_qc():
+        workflow.transform (
+            name = "{}_fastqc".format(subprefix),
+            func = FastQC.run,
+            args = (
+                fastq,
+            )
+        )
+
+    if not fastq.check_status():
+        workflow.transform (
+            name = "{}_cellranger_counts".format(subprefix),
+            func = CellRanger.count,
+            ret = pypeliner.managed.TempOutputObj("tenx_analysis_{}".format(subprefix)),
+            args = (
+                fastq,
+            )
+        )
+    if not tenx:
+        tenx = TenxAnalysis(fastq.results)
+    else:
+        tenx = pypeliner.managed.TempInputObj("tenx_analysis_{}".format(subprefix))
+    workflow.transform (
+        name = "{}_read10xcountsFiltered".format(subprefix),
+        func = TenX.read10xCountsFiltered,
+        args = (
+            tenx,
+            pypeliner.managed.OutputFile("sce_filtered.rdata")
+        )
+    )
+
+    workflow.commandline (
+        name = "{}_scater".format(subprefix),
+        args = ("Rscript", qcscript, pypeliner.managed.InputFile("sce_filtered.rdata"), pypeliner.managed.OutputFile("sce_final.rdata")),
+    )
+
+    if rho_matrix is not None:
+        workflow.transform (
+            name = "{}_cellassign".format(subprefix),
+            func = CellAssign.run_em,
+            args = (
+                "sce_final.rdata",
+                pypeliner.managed.OutputFile("cell_assign.rdata")
+            )
+        )
+
+    if copy_number_data is not None:
+        workflow.transform (
+            name = "{}_clonealign".format(subprefix),
+            func = CloneAlign.run,
+            args = (
+                pypeliner.managed.InputFile("sce_final.rdata"),
+                copy_number_data, #TODO  move copy number loading code
+                pypeliner.managed.OutputFile("clone_align_fit.rdata")
+            )
+        )
+    if scviz_embedding is not None:
+        workflow.transform (
+            name = "{}_scviz".format(subprefix),
+            func = SCViz.run,
+            args = (
+                pypeliner.managed.InputFile("sce_final.rdata"),
+                scviz_embedding,
+                output
+            )
+        )
+    else:
+        workflow.transform (
+            name = "{}_scviz".format(subprefix),
+            func = SCViz.run,
+            args = (
+                pypeliner.managed.InputFile("sce_final.rdata"),
+                tenx,
+                ""
+            )
+        )
+
+    workflow.transform (
+        name = "{}_save_rmd".format(subprefix),
+        func = exportRMD,
+        args = (
+            output,
+            subprefix,
+            fastq,
+            pypeliner.managed.InputFile("sce_final.rdata")
+        )
+    )
+
+    return workflow
+
 
 def create_workflow():
-    """
-    Generates tasks as Pypeliner workflow based on input arguments.
-    The workflow will start from the most raw input provided and override
-    any downstream tasks with subsequently provided input arguments.
-    Parellelization is performed over provided samplesheets and replication
-    within samples.
 
-    Args:
-        None
-
-    Yields:
-        Pypeliner workflow object.
-    """
+    workflow = pypeliner.workflow.Workflow()
 
     bcl_directory = args.get("bcl", None)
     fastq_directory = args.get("fastq", None)
     tenx_analysis = args.get("tenx", None)
     rdata = args.get("rdata", None)
+    output = args.get("out","./")
+    prefix = args.get("prefix","./")
 
-    bcl = BinaryBaseCall(bcl_directory)
-
-    workflow = pypeliner.workflow.Workflow()
+    try:
+        os.makedirs(os.path.join(output,"fastqc"))
+        print("FastQC directory created.")
+    except OSError:
+        print("FastQC directory already created.")
 
     if bcl_directory:
-        workflow.transform (
-            name = "bcl_to_fastq",
-            func = CellRanger.mkfastq,
-            ret = pypeliner.managed.TempOutputObj("fastq_object"),
-            args = (
-                bcl_object,
+        bcl_dirs = glob.glob(os.path.join(bcl_directory, "**/*.csv"), recursive=True)
+        for i, bcl_dir in enumerate(bcl_dirs):
+            subprefix = "{}_{}".format(prefix,i)
+            workflow.subworkflow(
+                name = subprefix,
+                func = create_run_workflow,
+                args = (
+                    subprefix,
+                    output,
+                    os.path.split(bcl_directory)[0],
+                    None
+                )
             )
-        )
-
-    if bcl_directory != None or fastq_directory != None:
-        if fastq_directory != None:
-            fastq = FastQDirectory(fastq_directory)
-        else:
-            fastq = pypeliner.managed.TempInputObj("fastq_object")
-        workflow.transform (
-            name = "fastqc",
-            func = FastQC.run,
-            ret = pypeliner.managed.TempOutputObj("qc_report")
-            args = (
-                fastq,
-            )
-        )
-
-    if bcl_directory != None or fastq_directory != None:
-        if fastq_directory != None:
-            fastq = FastQDirectory(fastq_directory)
-        else:
-            fastq = pypeliner.managed.TempInputObj("fastq_object")
-        workflow.transform (
-            name = "fastq_counts",
-            func = CellRanger.count,
-            ret = pypeliner.managed.TempOutputObj("tenx_analysis"),
-            args = (
-                fastq,
-            )
-        )
-
-    tenx = None
-    if tenx_analysis != None and rdata == None:
-        tenx = TenxAnalysis(tenx_analysis)
-    elif tenx_analysis == None and rdata == None:
-        tenx = pypeliner.managed.TempInputObj("tenx_analysis")
-    if tenx != None:
-        workflow.transform (
-            name = "tenx_read10xcounts",
-            func = TenX.read10xCounts,
-            ret = pypeliner.managed.TempOutputObj("single_cell_experiment"),
-            args = (
-                tenx,
-            )
-        )
-
-    if rdata != None:
-        single_cell_experiment = TenxAnalysis.from_rdata(rdata)
     else:
-        single_cell_experiment = pypeliner.managed.TempInputObj("single_cell_experiment")
-
-
-
-    #
-    # workflow.transform (
-    #     name = "tenx_barcoderanks",
-    #     func = TenX.barcodeRanks,
-    #     args = (
-    #         pypeliner.managed.TempInputObj("tenx_analysis"),
-    #     )
-    # )
-    #
-    # workflow.transform (
-    #     name = "tenx_emptydrops",
-    #     func = TenX.emptyDrops,
-    #     args = (
-    #         pypeliner.managed.TempInputObj("tenx_analysis"),
-    #     )
-    # )
-
-    workflow.transform (
-        name = "clonealign",
-        func = CloneAlign.run,
-        ret = pypeliner.managed.TempOutputObj("clone_align_fit"),
-        args = (
-            single_cell_experiment,
-        )
-    )
-
-    # """
-    # workflow.transform (
-    #     name = "cellasign",
-    #     func = CellAssign.run_em,
-    #     ret = pypeliner.managed.TempOutputObj("cell_assignments"),
-    #     args = (
-    #         single_cell_experiment,
-    #     )
-    # )
-    #
-    # workflow.transform (
-    #     name = "scviz",
-    #     func = SCViz.run,
-    #     ret = pypeliner.managed.TempOutputObj("scviz_dim_reduction"),
-    #     args = (
-    #         single_cell_experiment,
-    #     )
-    # )
-    #
-    # workflow.transform (
-    #     name = "html_output",
-    #     func = HTMLResults.generate,
-    #     args = (
-    #         pypeliner.managed.TempInputObj("fastq_object")
-    #         pypeliner.managed.TempInputObj("ten_analysis"),
-    #         pypeliner.managed.TempInputObj("single_cell_experiment"),
-    #         pypeliner.managed.TempInputObj("clone_align_fit"),
-    #         pypeliner.managed.TempInputObj("cell_assignments"),
-    #         pypeliner.managed.TempInputObj("scviz_dim_reduction"),
-    #     )
-    # )
-    """
+        fastq_dirs = glob.glob(os.path.join(fastq_directory, "**/*.csv"),recursive=True)
+        for i, fastq_dir in enumerate(fastq_dirs):
+            subprefix = "{}_{}".format(prefix,i)
+            workflow.subworkflow(
+                name = subprefix,
+                func = create_run_workflow,
+                args = (
+                    subprefix,
+                    output,
+                    None,
+                    os.path.split(fastq_dir)[0]
+                )
+            )
 
     return workflow
-
 
 if __name__ == '__main__':
 
@@ -214,9 +244,12 @@ if __name__ == '__main__':
     argparser.add_argument('--fastq', type=str, help='CellRanger Structured FastQ Output Directory')
     argparser.add_argument('--tenx', type=str, help='Output Directory From Cell Ranger mkfastq - or any folder with *_bc_gene_matrices')
     argparser.add_argument('--rdata', type=str, help='Serialized Single Cell Experiment From R')
-    argparser.add_argument('--nosecondary', type=str, help="Disable all downstream analysis")
+    argparser.add_argument('--out', type=str, help="Base directory for output")
+    argparser.add_argument("--prefix", type=str, help="Analysis prefix")
 
-    args = vars(argparser.parse_args())
+    parsed_args = argparser.parse_args()
+
+    args = vars(parsed_args)
     workflow = create_workflow()
     pyp = pypeliner.app.Pypeline(config=args)
     pyp.run(workflow)

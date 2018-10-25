@@ -1,5 +1,4 @@
 import unittest
-from rpy2.robjects import r, pandas2ri
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.tenxanalysis import TenxAnalysis
@@ -20,6 +19,7 @@ import sys
 import glob
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 class TestSingleCellExperiment(unittest.TestCase):
 
@@ -54,6 +54,26 @@ class TestSingleCellExperiment(unittest.TestCase):
         assay_names = list(assays.keys())
         for assay in assay_names:
             self.assertTrue(assay in expected_assays)
+
+    @unittest.skip("Skipping...")
+    def test_save_and_load_rdata(self):
+        print("Reading")
+        tenx = DropletUtils()
+        rs4_result = tenx.read10xCounts("/home/ceglian/data/raw_gene_bc_matrices/hg19/")
+        sce = SingleCellExperiment.fromRS4(rs4_result)
+        print("Writing")
+        sce.save("tests/sce_1.rdata")
+        print("Loading...")
+        sce_saved = SingleCellExperiment.fromRData("tests/sce_1.rdata")
+        print(sce_saved.assays["counts"].shape)
+
+    @unittest.skip("Skipping...")
+    def test_generate_qc_script(self):
+        #TODO move qcreport to export
+        from interface.qcreport import QCReport
+        report = QCReport("./tests/")
+        report.generate_script()
+
 
     @unittest.skip("Skipping...")
     def test_raw_assay_type_equivelence(self):
@@ -117,6 +137,7 @@ class TestSingleCellExperiment(unittest.TestCase):
         sce = tenx.calculateQCMetrics(sce)
         assert len(sce.rowData["n_cells_by_counts"]) == len(sce.rownames)
 
+    @unittest.skip("Skipping..")
     def test_tenx_full_analysis(self):
         tenx = TenxAnalysis("tests")
         print("Reading Counts")
@@ -193,16 +214,16 @@ class TestSingleCellExperiment(unittest.TestCase):
         scviz_runner.map(matrix, outdir, embedding)
 
 
-    @unittest.skip("Skipping...")
     def test_cell_assign_em(self):
-        example_rda = os.path.join(base_dir, "tests/cell_assign_test.RData")
-        sce = SingleCellExperiment.fromRData(example_rda)
+        #example_rda = os.path.join(base_dir, "tests/cell_assign_test.RData")
+        sce = "sce_final.rdata"
+        # sce = SingleCellExperiment.fromRData(example_rda)
         cellassigner = CellAssign()
-        rho_matrix = dict()
-        rho_matrix["Group1"] = ["Gene161", "Gene447", "Gene609", "Gene754", "Gene860", "Gene929", "Gene979"]
-        rho_matrix["Group2"] = ["Gene161", "Gene447", "Gene609", "Gene754", "Gene860", "Gene929", "Gene979","Gene101","Gene212","Gene400"]
-        rho = GeneMarkerMatrix(rho_matrix)
-        res = cellassigner.run_em(sce, rho)
+        # rho_matrix = dict()
+        # rho_matrix["Group1"] = ["Gene161", "Gene447", "Gene609", "Gene754", "Gene860", "Gene929", "Gene979"]
+        # rho_matrix["Group2"] = ["Gene161", "Gene447", "Gene609", "Gene754", "Gene860", "Gene929", "Gene979","Gene101","Gene212","Gene400"]
+        # rho = GeneMarkerMatrix(rho_matrix)
+        res = cellassigner.run_em(sce, "cell_assign_fit.rdata")
 
     @unittest.skip("Skipping...")
     def test_cell_assign_pkl(self):

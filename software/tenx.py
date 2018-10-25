@@ -2,16 +2,9 @@ from software.dropletutils import DropletUtils
 from interface.singlecellexperiment import SingleCellExperiment
 from software.scater import Scater
 from interface.scateranalysis import ScaterAnalysis
+from interface.qcreport import QCReport
 from utils import config
-
-# import rpy2.robjects as robjects
-# from rpy2.robjects.packages import importr
-# from rpy2.robjects import r, pandas2ri
-# from rpy2.rinterface import RRuntimeError
-#
-# pandas2ri.activate()
-#
-# ScaterInterface = importr("scater")
+import os
 
 
 class TenX(object):
@@ -20,10 +13,18 @@ class TenX(object):
         pass
 
     @staticmethod
-    def read10xCounts(tenx_analysis):
+    def read10xCountsRaw(tenx_analysis, output):
         utils = DropletUtils()
         counts = utils.read10xCounts(tenx_analysis.raw_matrices(config.build))
         sce = SingleCellExperiment.fromRS4(counts)
+        sce.save(output)
+        return sce
+
+    def read10xCountsFiltered(tenx_analysis, output):
+        utils = DropletUtils()
+        counts = utils.read10xCounts(tenx_analysis.filtered_matrices(config.build))
+        sce = SingleCellExperiment.fromRS4(counts)
+        sce.save(output)
         return sce
 
     @staticmethod
@@ -57,9 +58,17 @@ class TenX(object):
 
 
     @staticmethod
-    def calculateQCMetrics(sce):
+    def calculateQCMetrics(sce, prefix, output):
         scater = Scater()
-        return scater.calculateQCMetrics(sce)
+        qc_sce = scater.calculateQCMetrics(sce)
+        qc_sce.save(os.path.join(output,"sce_qc_{}.rdata".format(prefix)))
+
+    @staticmethod
+    def plotHighestExprs(sce, prefix, output):
+        scater = Scater()
+        plot = scater.plotHighestExprs(sce)
+        png = os.path.join(output, "highestExprs_{}.png".format(prefix))
+        scater.save(png, plot)
 
     @staticmethod
     def librarySizeFactors(counts):
@@ -71,18 +80,11 @@ class TenX(object):
         scater = Scater()
         return scater.normalizeExprs(sce)
 
+
     @staticmethod
     def analysis(sce):
-        output = "/Users/ceglian/Development/scater_output"
+        output = "tests/scater_output/"
         sa = ScaterAnalysis(output)
-        counts = sce.assays["counts"]
-        exit(0)
         bcrank = TenX.barcodeRanks(sce)
         sa.barcodeRanks(bcrank)
         qcdsce = TenX.calculateQCMetrics(sce)
-        print("RowData")
-        for att in qcdsce.rowData.keys():
-            print(att)
-        print("ColData")
-        for att in qcdsce.colData.keys():
-            print(att)

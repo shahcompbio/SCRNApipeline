@@ -24,7 +24,6 @@ SummarizedExperimentInterface = importr('SummarizedExperiment')
 BiocGenericsInterface         = importr('BiocGenerics')
 MatrixInterface               = importr('Matrix')
 BiobaseInterface              = importr('Biobase')
-# RangedSummarizedExperimentInterface = importr("RangedSummarizedExperiment")
 
 """
 SingleCellExperiment
@@ -52,7 +51,10 @@ class SingleCellExperiment(RS4):
 
     @classmethod
     def fromRData(sce_class, rdata):
-        rs4_object = robjects.r[r.load(rdata)[0]]
+        # try:
+        #     rs4_object = robjects.r[r.load(rdata)[0]]
+        # except Exception as e:
+        rs4_object = r.readRDS(rdata)
         sce = sce_class.fromRS4(rs4_object)
         sce.rs4 = rs4_object
         return sce
@@ -66,6 +68,10 @@ class SingleCellExperiment(RS4):
         sme = self.asSummarizedExperiment()
         data = robjects.r["ExpressionSet"](assayData=sme.slots["assays"])
         return data
+
+    def save(self,filename):
+        robjects.r.assign("sce",self.rs4)
+        robjects.r("saveRDS(sce, file='{}')".format(filename))
 
     @classmethod
     def fromRS4(sce_class, rs4_object):

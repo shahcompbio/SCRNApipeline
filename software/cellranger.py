@@ -15,7 +15,7 @@ class CellRanger(object):
             cmd.append("--{}".format(flag))
             cmd.append(value)
         cmd.append("--disable-ui")
-        cmd.append("--jobmode=lsf") #if running local can submit directly to lsf
+        cmd.append("--nopreflight")
         return cmd
 
     @staticmethod
@@ -26,7 +26,7 @@ class CellRanger(object):
         args["csv"] = bcl_object.csv
         cmd = CellRanger.cmd("mkfastq",args)
         subprocess.call(cmd)
-        return FastQDirectory("/home/ceglian/data/fastqs")
+        return FastQDirectory(bcl_object.out())
 
 
     @staticmethod
@@ -37,10 +37,12 @@ class CellRanger(object):
         args["sample"] = fastq_object.samples.sampleid[0]
         args["transcriptome"] = config.reference
         args["lanes"] = fastq_object.samples.lane[0]
-        #args["chemistry"] = "SC3P_auto"
-        cmd = CellRanger.cmd("count",args)
-        subprocess.call(cmd)
-        return TenxAnalysis(fastq_object.out())
+        args["localmem"] = "46"
+        args["localcores"] = "24"
+        if not fastq_object.check_status():
+            cmd = CellRanger.cmd("count",args)
+            subprocess.call(cmd)
+        return TenxAnalysis(fastq_object.results)
 
     @staticmethod
     def reanalyze(tenx_object):
@@ -50,9 +52,6 @@ class CellRanger(object):
         args["params"] = tenx_object.params
         cmd = CellRanger.cmd("reanalyze", args)
         subprocess.call(cmd)
-        return tenx_object
-
-
 
 
     def aggr(self):

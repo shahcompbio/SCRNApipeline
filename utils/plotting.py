@@ -20,3 +20,11 @@ def scatter(x, y, xlabel, ylabel, hlines, filename):
     ax.set_title("Barcode Ranks")
     ax.legend()
     plt.savefig(filename)
+
+def celltypes(data, filename, cell_labels):
+    f, ax = plt.subplots(figsize=(10,8))
+    sns.countplot(data)
+    ax.set_title("Cell Type Assignments")
+    sns.countplot(data)
+    ax.set_xticklabels(labels=cell_labels,rotation=30)
+    plt.savefig(filename)
