@@ -1,4 +1,6 @@
 import os
+import collections
+import glob
 
 class TenxAnalysis(object):
 
@@ -22,19 +24,28 @@ class TenxAnalysis(object):
         assert os.path.exists(web_summary), "No summary report found!"
         return web_summary
 
-    def clustering_labels(self, graphclust=False, k=10):
+    def clustering_labels(self, k=10):
         labels = collections.defaultdict(dict)
-        cluster_files = glob.glob(os.path.join(self.clustering, "*/clusters.tsv"))
+        print(os.path.join(self.clustering, "*/clusters.csv"))
+        cluster_files = glob.glob(os.path.join(self.clustering, "*/clusters.csv"))
+        print("Clustering files", cluster_files)
         for cluster_file in cluster_files:
-            num_clusters = cluster_file.split("/")[-1].strip(".csv")
+            num_clusters = os.path.splitext(cluster_file.split("/")[-2])[0]
+            print(num_clusters)
+            print(cluster_file)
             cells = open(cluster_file,"r").read().splitlines()
             for cell in cells[1:]:
                 barcode, cluster = cell.split(",")
                 labels[num_clusters][barcode] = cluster
-        if graph_clust:
-            labels = labels["graphclust"]
-        elif k is not none:
-            labels = labels["kmeans_{}_clusters".format(k)]
+        # print("Labels1", labels)
+        # if graphclust:
+        #     exit(0)
+        #     labels = labels["graphclust"]
+        # elif k is not none:
+        #     assert "kmeans_{}_clusters".format(k) in labels.keys(), "k not found"
+        print(labels.keys())
+        labels = labels["kmeans_{}_clusters".format(k)]
+        print("Labels",labels)
         return labels
 
     def map_projection(self, cellassignments, output):
@@ -42,12 +53,15 @@ class TenxAnalysis(object):
         rows = open(self.projection,"r").read().splitlines()
         header = rows.pop(0).split(",")
         header[0] = "Cell_Type"
-        output.write("\t".join(header)+"\n")
+        output.write("\t".join(header[1:])+"\n")
         for row in rows:
             row = row.split(",")
-            row[0] = cellassignments[row[0]]
-            output.write("\t".join(row)+"\n")
+            try:
+                cellassignments[row[0]]
+                output.write("\t".join(row[1:])+"\n")
+            except KeyError as e:
+                continue
         output.close()
-        
+
     # def __eq__(self, other):
     #     return self.path == other.path

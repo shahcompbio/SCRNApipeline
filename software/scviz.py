@@ -1,4 +1,5 @@
 from interface.singlecellexperiment import SingleCellExperiment
+import pickle
 import subprocess
 
 class SCViz(object):
@@ -9,35 +10,42 @@ class SCViz(object):
         for flag, value in args.items():
             cmd.append("--{}".format(flag))
             cmd.append(value)
+        cmd.append("--verbose")
         return cmd
 
     @staticmethod
     def create_input_files(sce_experiment, tenxanalysis, cellassignments):
-        labels = tenxanalysis.clustering_labels(graphclust=True)
+        labels = tenxanalysis.clustering_labels()
         barcodes = sce_experiment.colData["Barcode"]
         assert len(barcodes) == len(cellassignments), "Provided cell assignments do not cover all barcodes."
-        assert set(labels.keys()) == set(barcodes), "Not all barcodes have cluster labels."
+        assert len(set(barcodes).difference(set(labels.keys()))) == 0, "Not all barcodes have cluster labels."
         assignments = dict(zip(barcodes,cellassignments))
-        output = open("datamatrix.tsv","w")
+        output = open("labels.tsv","w")
         output.write("Cluster\n")
         for barcode, cluster in labels.items():
-            output.write(cluster + "\n")
+            try:
+                output.write(assignments[barcode] + "\n")
+            except KeyError as e:
+                continue
         output.close()
-        tenxanalysis.map_projection(assignments, "labels.tsv")
+        tenxanalysis.map_projection(assignments, "matrix.tsv")
 
     @staticmethod
     def train(rdata, tenxanalysis, cellassignments):
-        fit = pickle.load(open("cell_assign_fit.pkl","rb"))
+        print("Loading SCVIS")
+        fit = pickle.load(open(cellassignments,"rb"))
         pyfit = dict(zip(fit.names, list(fit)))
         cellassignments = pyfit["cell_type"]
         sce_experiment = SingleCellExperiment.fromRData(rdata)
         SCViz.create_input_files(sce_experiment, tenxanalysis, cellassignments)
         args = dict()
-        args["data_matrix_file"] = "datamatrix.tsv"
+        args["data_matrix_file"] = "matrix.tsv"
         args["out_dir"] = "./"
         args["data_label_file"] = "labels.tsv"
+        #args["normalize"] = "1.0"
         cmd = SCViz.cmd("train", args)
-        print("Running...")
+        print("Running...\n")
+        print(" ".join(cmd)+"\n")
         subprocess.call(cmd)
         print("Finished!")
 

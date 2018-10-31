@@ -3,17 +3,12 @@ import rpy2.rinterface as rinterface
 from rpy2.robjects import r, pandas2ri
 from rpy2.robjects.methods import RS4
 from rpy2.robjects.packages import importr
-from rpy2.robjects import default_converter
-from rpy2.robjects.conversion import Converter, localconverter
-from rpy2.rinterface import SexpS4
 
-from functools import partial
 import os
 import pandas
 import numpy
 import argparse
 import warnings
-from tqdm import tqdm
 from scipy.sparse import csr_matrix
 
 warnings.filterwarnings("ignore")
