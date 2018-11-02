@@ -11,6 +11,7 @@ from software.cellranger import CellRanger
 from software.fastqc import FastQC
 from software.tenx import TenX
 from software.scviz import SCViz
+from utils.plotting import tsne_scran
 from pstats import Stats
 import numpy
 import cProfile
@@ -219,6 +220,12 @@ class TestSingleCellExperiment(unittest.TestCase):
         embedding = "./tests/scvis_output/model/perplexity_10_regularizer_0.001_batch_size_512_learning_rate_0.01_latent_dimension_2_activation_ELU_seed_1_iter_5400.ckpt"
         scviz_runner.map(matrix, outdir, embedding)
 
+    def test_scran_tsne(self):
+        rdata = './tests/sce_final.rdata'
+        assn = './tests/cell_assign_fit.pkl'
+        tsne_scran(rdata,assn)
+
+    @unittest.skip("Skipping...")
     def test_cell_assign_em(self):
         #example_rda = os.path.join(base_dir, "tests/cell_assign_test.RData")
         print("Init CellEM")

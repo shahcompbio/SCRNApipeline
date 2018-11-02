@@ -63,6 +63,7 @@ from interface.genemarkermatrix import GeneMarkerMatrix
 from utils.reporting import HTMLResults
 from utils.config import *
 from utils.export import exportRMD
+from utils import plotting
 
 
 
@@ -76,11 +77,6 @@ def create_run_workflow(subprefix, output, bcl_directory, fastq_directory):
     qcreport = QCReport(output)
     qcscript = qcreport.generate_script()
 
-    # try:
-    #     os.makedirs(fastqc_output)
-    # except Exception as e:
-    #     pass
-    #
     # if bcl_directory:
     #     bcl = BinaryBaseCall(bcl_directory)
     #     workflow.transform (
@@ -92,58 +88,95 @@ def create_run_workflow(subprefix, output, bcl_directory, fastq_directory):
     #         )
     #     )
     #
-
-    if fastq_directory != None:
-        fastq = FastQDirectory(fastq_directory, subprefix, output)
-    else:
-        fastq = pypeliner.managed.TempInputObj("fastq_object_{}".format(subprefix))
-    if not fastq.has_qc():
-        workflow.transform (
-            name = "{}_fastqc".format(subprefix),
-            func = FastQC.run,
-            args = (
-                fastq,
-            )
-        )
-
-    if not fastq.check_status():
-        workflow.transform (
-            name = "{}_cellranger_counts".format(subprefix),
-            func = CellRanger.count,
-            ret = pypeliner.managed.TempOutputObj("tenx_analysis_{}".format(subprefix)),
-            args = (
-                fastq,
-            )
-        )
-    if not tenx:
-        tenx = TenxAnalysis(fastq.results)
-    else:
-        tenx = pypeliner.managed.TempInputObj("tenx_analysis_{}".format(subprefix))
-    print("Running...")
-    # workflow.transform (
-    #     name = "{}_read10xcountsFiltered".format(subprefix),
-    #     func = TenX.read10xCountsFiltered,
-    #     args = (
-    #         tenx,
-    #         pypeliner.managed.OutputFile("sce_filtered.rdata")
+    #
+    # if fastq_directory != None:
+    fastq = FastQDirectory(fastq_directory, subprefix, output)
+    # else:
+    #     fastq = pypeliner.managed.TempInputObj("fastq_object_{}".format(subprefix))
+    # if not fastq.has_qc():
+    #     workflow.transform (
+    #         name = "{}_fastqc".format(subprefix),
+    #         func = FastQC.run,
+    #         args = (
+    #             fastq,
+    #         )
     #     )
-    # )
-    # #
-    # workflow.commandline (
-    #     name = "{}_scater".format(subprefix),
-    #     args = ("Rscript", qcscript, pypeliner.managed.InputFile("sce_filtered.rdata"), pypeliner.managed.OutputFile("sce_final.rdata")),
-    # )
+    #
+    # if not fastq.check_status():
+    #     workflow.transform (
+    #         name = "{}_cellranger_counts".format(subprefix),
+    #         func = CellRanger.count,
+    #         ret = pypeliner.managed.TempOutputObj("tenx_analysis_{}".format(subprefix)),
+    #         args = (
+    #             fastq,
+    #         )
+    #     )
+    #
+    # #tenx = TenxAnalysis(fastq.results)
+    #
+    # if not os.path.exists("sce_filtered.rdata"):
+    #     workflow.transform (
+    #         name = "{}_read10xcountsFiltered".format(subprefix),
+    #         func = TenX.read10xCountsFiltered,
+    #         args = (
+    #             TenxAnalysis(fastq.results),
+    #             pypeliner.managed.OutputFile("sce_filtered.rdata")
+    #         )
+    #     )
+    #
+    workflow.commandline (
+        name = "{}_scater".format(subprefix),
+        args = ("Rscript", qcscript, pypeliner.managed.InputFile("sce_filtered.rdata"), pypeliner.managed.OutputFile("sce_final.rdata")),
+    )
 
-    if rho_matrix is not None and not os.path.exists("cell_assign_fit.pkl"):
+    if rho_matrix is not None:
         workflow.transform (
             name = "{}_cellassign".format(subprefix),
             func = CellAssign.run_em,
             args = (
-                "sce_final.rdata",
+                pypeliner.managed.InputFile("sce_final.rdata"),
                 pypeliner.managed.OutputFile("cell_assign_fit.pkl"),
                 subprefix
             )
         )
+
+
+    # for i in perplexes:
+    #     workflow.transform (
+    #         name = "{}_tsne_{}".format(subprefix, i),
+    #         func = plotting.tsne,
+    #         args = (
+    #             TenxAnalysis(fastq.results),
+    #             pypeliner.managed.InputFile("cell_assign_fit.pkl"),
+    #             i,
+    #             "tsne_{}.png".format(i)
+    #         )
+    #     )
+
+    workflow.transform (
+        name = "scran_tsne",
+        func = plotting.tsne_scran,
+        args = (
+            pypeliner.managed.InputFile("sce_final.rdata"),
+            pypeliner.managed.InputFile("cell_assign_fit.pkl"),
+        )
+    )
+
+    # for i in mdistances:
+    #     suffix = str(i).replace(".","_")
+    #     workflow.transform (
+    #         name = "{}_umap_{}".format(subprefix, suffix),
+    #         func = plotting.umap,
+    #         args = (
+    #             pypeliner.managed.InputFile("sce_final.rdata"),
+    #             TenxAnalysis(fastq.results),
+    #             pypeliner.managed.InputFile("cell_assign_fit.pkl"),
+    #             i,
+    #             "umap_{}.png".format(suffix)
+    #         )
+    #     )
+
+
 
     # if copy_number_data is not None:
     #     workflow.transform (
@@ -155,6 +188,8 @@ def create_run_workflow(subprefix, output, bcl_directory, fastq_directory):
     #             pypeliner.managed.OutputFile("clone_align_fit.rdata")
     #         )
     #     )
+
+
     # if scviz_embedding is not None:
     #     workflow.transform (
     #         name = "{}_scviz".format(subprefix),
@@ -166,7 +201,6 @@ def create_run_workflow(subprefix, output, bcl_directory, fastq_directory):
     #         )
     #     )
     # else:
-    # print("Running SC")
     # workflow.transform (
     #     name = "{}_scviz".format(subprefix),
     #     func = SCViz.train,
@@ -177,16 +211,16 @@ def create_run_workflow(subprefix, output, bcl_directory, fastq_directory):
     #     )
     # )
 
-    workflow.transform (
-        name = "{}_save_rmd".format(subprefix),
-        func = exportRMD,
-        args = (
-            output,
-            subprefix,
-            fastq,
-            pypeliner.managed.InputFile("sce_final.rdata")
-        )
-    )
+    # workflow.transform (
+    #     name = "{}_save_rmd".format(subprefix),
+    #     func = exportRMD,
+    #     args = (
+    #         output,
+    #         subprefix,
+    #         fastq,
+    #         pypeliner.managed.InputFile("sce_final.rdata")
+    #     )
+    # )
 
     return workflow
 
@@ -223,7 +257,6 @@ def create_workflow():
                 )
             )
     else:
-        print(fastq_directory)
         fastq_dirs = glob.glob(os.path.join(fastq_directory, "**/*.csv"),recursive=True)
         for i, fastq_dir in enumerate(fastq_dirs):
             subprefix = "{}_{}".format(prefix,i)

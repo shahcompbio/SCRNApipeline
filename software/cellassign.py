@@ -10,6 +10,7 @@ import os
 import sys
 from utils.config import *
 import pickle
+import pandas
 
 os.environ["RETICULATE_PYTHON"] = sys.executable
 
@@ -27,6 +28,7 @@ class CellAssign(object):
         sce_experiment = SingleCellExperiment.fromRData(rdata)
         assert symbol in sce_experiment.rowData.keys()
         genes = list(map(lambda x: x.upper(), list(sce_experiment.rowData["Symbol"])))
+        barcodes = list(sce_experiment.colData["Barcode"])
         matrix = sce_experiment.assays[assay]
         rho = eval(open(rho_matrix, "r").read())
         rho = GeneMarkerMatrix(rho)
@@ -54,23 +56,43 @@ class CellAssign(object):
             matrix = numpy.array(_matrix)
         matrix_o = numpy.transpose(matrix)
         matrix_f = []
-        for row in matrix_o:
+        assert matrix_o.shape[0] == len(barcodes), "not the same"
+        _barcodes = []
+        for barcode, row in zip(barcodes,matrix_o):
             if list(row).count(0.0) != len(row):
                 matrix_f.append(row)
+                _barcodes.append(barcode)
+        barcodes = _barcodes
         matrix_t = numpy.transpose(matrix_f)
         s = EdgeRInterface.calcNormFactors(matrix_t, method="TMM")
         s = pandas2ri.ri2py(s)
-        matrix = numpy.transpose(matrix_t)
+
         rho_binary_matrix = numpy.array(rho.matrix(subset=genes))
+
+        df_dict = dict()
+        for gene, row in zip(genes,matrix_t):
+            df_dict[gene] = row
+        df = pandas.DataFrame(df_dict)
+        cor = df.corr()
+
+        cor.loc[:,:] =  numpy.tril(cor.values, k=-1)
+        cor = cor.stack()
+        groups = cor[cor > 0.5]
+        print(groups)
+        matrix = numpy.transpose(matrix_t)
         assert matrix.shape[1] == rho_binary_matrix.shape[0], "Dimensions between rho and expression matrix do not match!"
-        fit = CellAssignInterface.cellassign_em(matrix, rho_binary_matrix, s=s, sce_assay=assay, data_type="RNAseq")
-        pickle.dump(fit, open(filename,"wb"))
+        fit = CellAssignInterface.cellassign_em(matrix, rho_binary_matrix, s=s, data_type="RNAseq")
+        #pickle.dump(fit, open(filename,"wb"))
+        #fit = pickle.load(open(filename,"wb"))
         pyfit = dict(zip(fit.names, list(fit)))
-        mle_params = dict(zip(pyfit["mle_params"].names, list(pyfit["mle_params"])))
+        pyfit["Barcode"] = barcodes
+        # mle_params = dict(zip(pyfit["mle_params"].names, list(pyfit["mle_params"])))
         conversion = dict(zip(sorted(list(set(pyfit["cell_type"]))),rho.celltypes()))
         cells = []
         for assignment in list(pyfit["cell_type"]):
             cells.append(conversion[assignment])
+        pyfit["cell_type"] = cells
+        pickle.dump(pyfit, open(filename,"wb"))
         celltypes(cells,"{}_cell_types.png".format(prefix),[cell.split("_")[0] for cell in rho.cells])
         robjects.r.assign("cell_assign_fit", fit)
         robjects.r("saveRDS(cell_assign_fit, file='{}_cellassign.rdata')".format(prefix))

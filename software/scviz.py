@@ -13,12 +13,12 @@ class SCViz(object):
         cmd.append("--verbose")
         return cmd
 
-    @staticmethod
+    @staticmethod #TODO move to TenxAnalysis
     def create_input_files(sce_experiment, tenxanalysis, cellassignments):
         labels = tenxanalysis.clustering_labels()
         barcodes = sce_experiment.colData["Barcode"]
-        assert len(barcodes) == len(cellassignments), "Provided cell assignments do not cover all barcodes."
-        assert len(set(barcodes).difference(set(labels.keys()))) == 0, "Not all barcodes have cluster labels."
+        # assert len(barcodes) == len(cellassignments), "Provided cell assignments do not cover all barcodes."
+        # assert len(set(barcodes).difference(set(labels.keys()))) == 0, "Not all barcodes have cluster labels."
         assignments = dict(zip(barcodes,cellassignments))
         output = open("labels.tsv","w")
         output.write("Cluster\n")

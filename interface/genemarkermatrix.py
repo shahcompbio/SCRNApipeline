@@ -12,7 +12,7 @@ class GeneMarkerMatrix(object):
     def __init__(self, marker_list):
         self.marker_list = marker_list
         self.genes = list(set([gene for genelist in self.marker_list.values() for gene in genelist]))
-
+        self.cells = list(self.marker_list.keys())
 
     def matrix(self, subset=None, include_other=True):
         self.indicator = []

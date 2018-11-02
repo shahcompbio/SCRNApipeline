@@ -31,7 +31,7 @@ def exportRMD(directory, prefix, fastq, sce_qc):
 
     # code = "plotHighestExprs({}, exprs_values = 'counts')".format(sce_qc)
     # codeblock(code, output)
-    #
+
     # code = "plotExprsFreqVsMean({})".format(sce_qc)
     # codeblock(code, output)
 
