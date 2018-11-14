@@ -46,9 +46,6 @@ class SingleCellExperiment(RS4):
 
     @classmethod
     def fromRData(sce_class, rdata):
-        # try:
-        #     rs4_object = robjects.r[r.load(rdata)[0]]
-        # except Exception as e:
         rs4_object = r.readRDS(rdata)
         sce = sce_class.fromRS4(rs4_object)
         sce.rs4 = rs4_object
@@ -132,6 +129,14 @@ class SingleCellExperiment(RS4):
     @colData.setter
     def colData(self, rs4_colData):
         self._colData = SingleCellExperiment.unpack(rs4_colData)
+
+    @property
+    def reducedDims(self):
+        return self._reducedDims
+
+    @reducedDims.setter
+    def reducedDims(self, rs4_reducedDims):
+        self._reducedDims = SingleCellExperiment.unpack(rs4_reducedDims)
 
     @property
     def assays(self):

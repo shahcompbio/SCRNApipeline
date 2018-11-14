@@ -15,14 +15,15 @@ class TenX(object):
     @staticmethod
     def read10xCountsRaw(tenx_analysis, output):
         utils = DropletUtils()
-        counts = utils.read10xCounts(tenx_analysis.raw_matrices(config.build))
+        counts = utils.read10xCounts(tenx_analysis.raw_matrices())
         sce = SingleCellExperiment.fromRS4(counts)
         sce.save(output)
         return sce
 
+    @staticmethod
     def read10xCountsFiltered(tenx_analysis, output):
         utils = DropletUtils()
-        counts = utils.read10xCounts(tenx_analysis.filtered_matrices(config.build))
+        counts = utils.read10xCounts(tenx_analysis.filtered_matrices())
         sce = SingleCellExperiment.fromRS4(counts)
         sce.save(output)
         return sce
@@ -55,7 +56,6 @@ class TenX(object):
     def calculateFPKM(counts):
         scater = Scater()
         return scater.calculateCPM(counts)
-
 
     @staticmethod
     def calculateQCMetrics(sce, prefix, output):

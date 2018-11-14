@@ -38,6 +38,7 @@ class FastQDirectory(object):
         self.results = os.path.join(output, "{}/outs/".format(self.id))
         self.completed = False
 
+
     def get_samples(self, directory):
         sheets = glob.glob(os.path.join(directory, "*.csv"))
         sheets += glob.glob(os.path.join(directory, "*.tsv"))
@@ -59,6 +60,13 @@ class FastQDirectory(object):
             if not os.path.exists(html):
                 return False
         return True
+
+    def qc_reports(self):
+        dir = os.path.join(self.output,"fastqc")
+        _fastqs = self.get_fastqs()
+        for fastq in _fastqs:
+            sample = os.path.splitext(os.path.splitext(os.path.split(fastq)[1])[0])[0]
+            yield sample, os.path.join(dir,"{}_fastqc.html".format(sample))
 
     def __eq__(self, other):
         return self.path == self.other

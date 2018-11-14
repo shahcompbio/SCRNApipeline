@@ -67,7 +67,7 @@ class CellAssign(object):
         s = EdgeRInterface.calcNormFactors(matrix_t, method="TMM")
         s = pandas2ri.ri2py(s)
 
-        rho_binary_matrix = numpy.array(rho.matrix(subset=genes))
+        rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=False))
 
         df_dict = dict()
         for gene, row in zip(genes,matrix_t):
@@ -83,7 +83,7 @@ class CellAssign(object):
         assert matrix.shape[1] == rho_binary_matrix.shape[0], "Dimensions between rho and expression matrix do not match!"
         fit = CellAssignInterface.cellassign_em(matrix, rho_binary_matrix, s=s, data_type="RNAseq")
         #pickle.dump(fit, open(filename,"wb"))
-        #fit = pickle.load(open(filename,"wb"))
+        #fit = pickle.load(open(filename,"rb"))
         pyfit = dict(zip(fit.names, list(fit)))
         pyfit["Barcode"] = barcodes
         # mle_params = dict(zip(pyfit["mle_params"].names, list(pyfit["mle_params"])))
@@ -93,6 +93,6 @@ class CellAssign(object):
             cells.append(conversion[assignment])
         pyfit["cell_type"] = cells
         pickle.dump(pyfit, open(filename,"wb"))
-        celltypes(cells,"{}_cell_types.png".format(prefix),[cell.split("_")[0] for cell in rho.cells])
-        robjects.r.assign("cell_assign_fit", fit)
-        robjects.r("saveRDS(cell_assign_fit, file='{}_cellassign.rdata')".format(prefix))
+        #celltypes(cells,"cell_types.png",[cell.split("_")[0] for cell in rho.cells])
+        # robjects.r.assign("cell_assign_fit", fit)
+        # robjects.r("saveRDS(cell_assign_fit, file='{}_cellassign.rdata')".format(prefix))
