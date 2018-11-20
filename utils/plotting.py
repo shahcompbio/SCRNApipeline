@@ -12,7 +12,7 @@ import collections
 sns.set(style="darkgrid")
 
 
-def celltypes(rdata, cell_assign_fit):
+def celltypes(rdata, cell_assign_fit, prefix):
     fit = pickle.load(open(cell_assign_fit,"rb"))
     cell_types = list(fit["cell_type"])
     order = []
@@ -22,7 +22,7 @@ def celltypes(rdata, cell_assign_fit):
         if len(order) == len(set(cell_types)):
             break
     f, ax = plt.subplots(figsize=(12,6))
-    ax.set_title("Cell Type Assignments")
+    ax.set_title("Cell Type Assignments - {}".format(prefix))
     sns.countplot(cell_types, palette="tab10")
     ax.set_xticklabels(labels=order,rotation=30)
     plt.tight_layout()
@@ -55,7 +55,7 @@ def celltypes(rdata, cell_assign_fit):
 #     plt.tight_layout()
 #     plt.savefig(filename)
 
-def tsne_by_cell_type(rdata, cell_assign_fit):
+def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
     fit = pickle.load(open(cell_assign_fit,"rb"))
     cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
     sce = SingleCellExperiment.fromRData(rdata)
@@ -73,12 +73,12 @@ def tsne_by_cell_type(rdata, cell_assign_fit):
         y.append(y_coded[barcode])
     f, ax = plt.subplots(figsize=(10,8))
     sns.scatterplot(x=x, y=y, hue=fit["cell_type"],alpha=0.85,palette="tab10")
-    ax.set_title("TSNE - Cell Types")
+    ax.set_title("TSNE - Cell Types - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
     plt.savefig("tsne_by_cell_type.png")
 
-def tsne_by_cluster(rdata, cell_assign_fit):
+def tsne_by_cluster(rdata, cell_assign_fit, prefix):
     fit = pickle.load(open(cell_assign_fit,"rb"))
     cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
     sce = SingleCellExperiment.fromRData(rdata)
@@ -99,12 +99,12 @@ def tsne_by_cluster(rdata, cell_assign_fit):
         cluster.append("Cluster {}".format(cluster_coded[barcode]))
     f, ax = plt.subplots(figsize=(10,8))
     sns.scatterplot(x=x, y=y, hue=cluster, alpha=0.85, palette="viridis")
-    ax.set_title("TSNE - Clusters")
+    ax.set_title("TSNE - Clusters - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
     plt.savefig("tsne_by_cluster.png")
 
-def cell_type_by_cluster(rdata, cell_assign_fit):
+def cell_type_by_cluster(rdata, cell_assign_fit, prefix):
     fit = pickle.load(open(cell_assign_fit,"rb"))
     cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
     sce = SingleCellExperiment.fromRData(rdata)
@@ -136,9 +136,9 @@ def cell_type_by_cluster(rdata, cell_assign_fit):
                 fpercentages.append(0.0)
     df = pandas.DataFrame({"Cluster":fclusters, "Cell Type": fcelltypes, "Percentage": fpercentages})
     ax = sns.barplot(x="Cluster", y= "Percentage", hue="Cell Type", data=df, palette="tab10")
-    ax.set_title("Cell Type by Cluster")
+    ax.set_title("Cell Type by Cluster - {}".format(prefix))
     plt.tight_layout()
-    plt.savefig("cluster_by_cell_type.png")
+    plt.savefig("cell_type_by_cluster.png")
 
 def umap(rdata, tenx, cell_assign_fit, filename):
     tenx.create_scanpy_adata()

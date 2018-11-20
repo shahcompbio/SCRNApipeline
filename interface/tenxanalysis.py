@@ -58,15 +58,17 @@ class TenxAnalysis(object):
             projection[row[0]] = row[1:]
         return projection
 
-    def create_scanpy_adata(self):
+    def create_scanpy_adata(self, fast_load=False):
         print(self.filtered_matrices(), "PATH")
         self.adata = sc.read_10x_mtx(self.filtered_matrices(), var_names='gene_symbols', cache=True)
         self.adata.var_names_make_unique()
         self.adata.barcodes = pandas.read_csv(os.path.join(self.filtered_matrices(),'barcodes.tsv'), header=None)[0]
-        sc.tl.pca(self.adata)
-        sc.pp.neighbors(self.adata)
-        sc.tl.umap(self.adata)
-        sc.tl.tsne(self.adata)
+        if not fast_load:
+            sc.tl.pca(self.adata)
+            sc.pp.neighbors(self.adata)
+            sc.tl.umap(self.adata)
+            sc.tl.tsne(self.adata)
+        return self.adata
 
 
     def umap(self, min_dist=None):

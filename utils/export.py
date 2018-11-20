@@ -30,6 +30,39 @@ def imports(handle):
     handle.write("```\n")
 
 
+def exportMD(results):
+    markdown = os.path.join(results.output,"{}_analysis.md".format(results.prefix))
+    output = open(markdown,"w")
+    output.write("# {} Analysis\n".format(results.prefix.replace('_',' ').capitalize()))
+    output.write("***\n")
+    output.write("\n\n## Pipeline Output\n")
+    output.write(" - [CellRanger Summary]({})\n".format(results.analysis.summary()))
+    output.write(" - SCE Object (Filtered Matrices Output of CellRanger): {}\n\n".format(results.filtered_sce))
+    output.write(" - SCE Object (After R Workflow [basic]): {}\n\n".format(results.final_sce))
+    output.write(" - R Workflow: {}\n\n".format(results.script))
+    output.write(" - Cell Assign RData: {}\n\n".format(results.raw))
+    output.write(" - Barcode to Cell Type: {}\n\n".format(results.barcode_to_celltype()))
+
+    output.write("***\n")
+    output.write("## Quality Control\n")
+    output.write("### FastQC\n")
+    for sample, summary in results.qc_reports():
+        output.write(" - [{}]({})\n".format(sample, summary))
+
+    for plot in results.plots:
+        output.write("\n### {}\n".format(plot["header"]))
+        output.write("![{}]({})\n".format(plot["desc"],plot["path"]))
+
+    output.close()
+    convertHTML(markdown)
+
+
+def convertHTML(markdown):
+    output = open("results.html","w")
+    html = markdowner.convert(open(markdown,"r").read())
+    output.write(html)
+    output.close()
+
 def exportRMD(fastq, analysis, scater_workflow, prefix, sce, output_path):
     with_code=False
     rmd = os.path.join(output_path,"{}_analysis.rmd".format(prefix))
@@ -176,32 +209,33 @@ class ScaterCode(object):
         self.normalize(output)
         self.calc_size_factors(output)
 
-        #
-        # output.write("fit <- trendVar(sce, use.spikes=FALSE)\n")
-        # output.write("decomp <- decomposeVar(sce, fit)\n")
-        # output.write("top.hvgs <- order(decomp$bio, decreasing=TRUE)\n")
-        #
-        # """
-        # batch <- rep(c("1", "2"), each=100)
-        # design <- model.matrix(~batch)
-        # alt.fit2 <- trendVar(sce, design=design)
-        # alt.decomp2 <- decomposeVar(sce, alt.fit)
-        # """
-        #
-        #
-        # output.write("png('mean_var.png.png')\n")
-        # output.write("plot(decomp$mean, decomp$total, xlab='Mean log-expression', ylab='Variance')\n")
-        # output.write("dev.off()\n")
+        if False:
+
+            output.write("fit <- trendVar(sce, use.spikes=FALSE)\n")
+            output.write("decomp <- decomposeVar(sce, fit)\n")
+            output.write("top.hvgs <- order(decomp$bio, decreasing=TRUE)\n")
+
+            """
+            batch <- rep(c("1", "2"), each=100)
+            design <- model.matrix(~batch)
+            alt.fit2 <- trendVar(sce, design=design)
+            alt.decomp2 <- decomposeVar(sce, alt.fit)
+            """
 
 
-        # output.write("pca_data <- prcomp(t(log1p(assay(sce))))\n")
-        # output.write("tsne_data <- Rtsne(pca_data$x[,1:50], pca = FALSE)\n")
-        # output.write("reducedDims(sce) <- SimpleList(PCA=pca_data$x, TSNE=tsne_data$Y)\n")
+            output.write("png('mean_var.png.png')\n")
+            output.write("plot(decomp$mean, decomp$total, xlab='Mean log-expression', ylab='Variance')\n")
+            output.write("dev.off()\n")
 
-        # output.write("null.dist <- correlateNull(ncol(sce), iter=1e5)\n")
-        # output.write("cor.pairs <- correlatePairs(sce, subset.row=top.hvgs[1:200], null.dist=null.dist)\n")
-        # output.write("head(cor.pairs)\n")
-        # output.write("write.csv(cor.pairs, file = 'correlated.csv', row.names=FALSE)\n")
+
+            output.write("pca_data <- prcomp(t(log1p(assay(sce))))\n")
+            output.write("tsne_data <- Rtsne(pca_data$x[,1:50], pca = FALSE)\n")
+            output.write("reducedDims(sce) <- SimpleList(PCA=pca_data$x, TSNE=tsne_data$Y)\n")
+
+            output.write("null.dist <- correlateNull(ncol(sce), iter=1e5)\n")
+            output.write("cor.pairs <- correlatePairs(sce, subset.row=top.hvgs[1:200], null.dist=null.dist)\n")
+            output.write("head(cor.pairs)\n")
+            output.write("write.csv(cor.pairs, file = 'correlated.csv', row.names=FALSE)\n")
 
         output.write("snn.gr <- buildSNNGraph(sce)\n")
         output.write("clusters <- igraph::cluster_walktrap(snn.gr)\n")

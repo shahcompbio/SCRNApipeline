@@ -1,0 +1,8 @@
+prefix: example_run
+reference: "/home/ceglian/codebase/refdata/GRCh38"
+rho_matrix: "/home/ceglian/codebase/refdata/rho.json"
+copy_number_data: None
+scviz_embedding: None
+perplexes: [5,10,20,30,50,100]
+mdistances: [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]
+chemistry: "SC5P-R2"
