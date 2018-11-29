@@ -12,6 +12,7 @@ from interface.binarybasecall import BinaryBaseCall
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
 from interface.genemarkermatrix import GeneMarkerMatrix
+from interface.singlecellexperiment import SingleCellExperiment
 from utils.export import exportRMD, ScaterCode
 
 from utils import plotting, combine
@@ -83,24 +84,26 @@ class PrimaryRun(object):
         else:
             print("No FastQ to run.")
 
-    def _generate_csv(self):
+    def _generate_csv(self, libbase):
         csv = open(self.libraries_csv,"w")
         csv.write("library_id,molecule_h5\n")
         for library in self.libraries:
-            lib_output = os.path.join(output,library)
-            partial_path = os.path.join(lib_output,"*/outs/molecule_info.h5")
-            for molecule_h5 in glob.glob(partial_path):
-                if os.path.exists(molecule_h5):
-                    csv.write("{prefix},{path}\n".format(prefix=library,path=molecule_h5))
-                else:
-                    print("Not Found", molecule_h5)
+            print(library)
+            lib_output = os.path.join(libbase,library)
+            print(lib_output)
+            molecule_h5 = os.path.join(lib_output,"outs/molecule_info.h5")
+            if os.path.exists(molecule_h5):
+                print("Writing")
+                csv.write("{prefix},{path}\n".format(prefix=library,path=molecule_h5))
+            else:
+                print("Not Found", molecule_h5)
         csv.close()
 
-    def aggregate_libraries(self, libraries):
+    def aggregate_libraries(self, libraries, libbase):
         if len(libraries) > 0:
             self.libraries = libraries
             self.libraries_csv = os.path.join(self.output, "libraries.csv")
-            self._generate_csv()
+            self._generate_csv(libbase)
             self.workflow.transform (
                 name = "{}_aggr".format(self.prefix),
                 func = CellRanger.aggr,
@@ -120,31 +123,30 @@ class SecondaryAnalysis(object):
         self.prefix = prefix
         self.output = output
         self.sce_filtered = os.path.join(self.output,"sce_filtered.rdata")
+        self.tsne_filtered = os.path.join(self.output, "raw_tsne.rdata")
         self.sce_final = os.path.join(self.output,"sce_final.rdata")
+        self._pca = os.path.join(self.output,"pca_{}.rdata")
+        self._raw_pca = os.path.join(self.output,"raw_pca_{}.rdata")
         self.cell_assign_fit = os.path.join(self.output, "cell_assign_fit.pkl")
-        self.cell_assign_rdata = os.path.join(self.output, "{}_cellassign.rdata".format(self.prefix))
+        self.cell_assign_rdata = os.path.join(self.output, "cell_assign_fit.rdata")
         self.clone_align_fit = os.path.join(self.output, "clone_align_fit.rdata")
 
-
-    def set_directory(self, directory):
-        if directory is not None:
-            self.analysis = TenxAnalysis(directory)
-            self.build_sce()
 
     def set_rdata(self, rdata):
         if rdata is not None:
             self.rdata = rdata
 
-    def build_sce(self):
+    def build_sce(self,tenx):
         self.workflow.transform (
-            name = "{}_read10xcounts".format(self.prefix),
+            name = "read10xcounts",
             func = TenX.read10xCountsFiltered,
             args = (
-                self.analysis,
+                tenx,
                 pypeliner.managed.OutputFile(self.sce_filtered)
             )
         )
         self.rdata = self.sce_filtered
+
 
     def run_scater(self):
         self.scater_workflow = ScaterCode(self.output)
@@ -155,15 +157,16 @@ class SecondaryAnalysis(object):
                 args = ("Rscript", self.rscript, pypeliner.managed.InputFile(self.sce_filtered), pypeliner.managed.OutputFile(self.sce_final)),
             )
 
-
-    def run_cell_assign(self, rho_matrix, additional=None):
+    def run_cell_assign(self, rho_matrix, tenx, additional=None):
         self.workflow.transform (
             name = "{}_cellassign".format(self.prefix),
             func = CellAssign.run_em,
             args = (
+                tenx,
                 pypeliner.managed.InputFile(self.sce_final),
                 pypeliner.managed.OutputFile(self.cell_assign_fit),
                 self.prefix,
+                rho_matrix,
                 additional
             )
         )
@@ -193,22 +196,65 @@ class SecondaryAnalysis(object):
             args = (
                 pypeliner.managed.InputFile(self.sce_final),
                 pypeliner.managed.InputFile(self.cell_assign_fit),
-                self.prefix
+                self.prefix,
+                self.output
             )
         )
         return "cell_types.png"
 
-    def plot_tsne_by_cluster(self):
-        self.workflow.transform (
-            name = "tsne_by_cluster",
-            func = plotting.tsne_by_cluster,
-            args = (
-                pypeliner.managed.InputFile(self.sce_final),
-                pypeliner.managed.InputFile(self.cell_assign_fit),
-                self.prefix
+    def plot_tsne_by_cluster(self, tenx, raw=False):
+        if not raw:
+            prefix = self.prefix
+            self.workflow.transform (
+                name = "tsne_by_cluster",
+                func = plotting.tsne_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce_final),
+                    tenx,
+                    prefix,
+                )
             )
-        )
-        return "tsne_by_cluster.png"
+        else:
+            prefix = self.prefix + "_raw"
+            self.workflow.transform (
+                name = "tsne_by_cluster_raw",
+                func = plotting.tsne_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.tsne_filtered),
+                    tenx,
+                    prefix,
+                )
+            )
+        return "tsne_by_cluster_{}.png".format(prefix)
+
+    def plot_scvis_by_cluster(self, tenx, embedding_file, pcs=2, raw=False):
+        if not raw:
+            prefix = self.prefix + "_{}".format(pcs)
+            self.workflow.transform (
+                name = "scvis_by_cluster_{}".format(pcs),
+                func = plotting.scvis_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce_final),
+                    tenx,
+                    prefix,
+                    embedding_file,
+                    pcs
+                )
+            )
+        else:
+            prefix = self.prefix + "_raw_{}".format(pcs)
+            self.workflow.transform (
+                name = "scvis_by_cluster_raw_{}".format(pcs),
+                func = plotting.scvis_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce_filtered),
+                    tenx,
+                    prefix,
+                    embedding_file,
+                    pcs
+                )
+            )
+        return "tsne_by_cluster_{}.png".format(prefix)
 
     def plot_tsne_by_cell_type(self):
         self.workflow.transform (
@@ -246,19 +292,33 @@ class SecondaryAnalysis(object):
             )
         )
 
-    def run_scviz(self, cellassignments):
+
+    def run_scviz(self, perplexity, components):
+        if components == None:
+            components = "All"
         self.workflow.transform (
-            name = "{}_scviz".format(self.prefix),
+            name = "{}_scviz_{}_{}".format(self.prefix, perplexity, components),
             func = SCViz.train,
             args = (
-                pypeliner.managed.InputFile(self.sce_final),
                 self.output,
-                cellassignments
+                perplexity,
+                components,
+                pypeliner.managed.InputFile(self._pca.format(components)),
+            )
+        )
+        self.workflow.transform (
+            name = "{}_raw_scviz_{}_{}".format(self.prefix, perplexity, components),
+            func = SCViz.train,
+            args = (
+                self.output,
+                perplexity,
+                components,
+                pypeliner.managed.InputFile(self._raw_pca.format(components)),
             )
         )
 
     def map_scviz(self, scviz_embedding):
-        workflow.transform (
+        self.workflow.transform (
             name = "{}_scviz".format(self.prefix),
             func = SCViz.map,
             args = (

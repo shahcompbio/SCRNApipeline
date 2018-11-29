@@ -58,7 +58,7 @@ from software.fastqc import FastQC
 from interface.binarybasecall import BinaryBaseCall
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
-from interface.genemarkermatrix import GeneMarkerMatrix
+from interface.genemarkermatrix import GeneMarkerMatrix, generate_json
 
 from utils.reporting import Results
 from utils.config import *
@@ -66,6 +66,8 @@ from utils.export import exportMD, ScaterCode
 from utils import plotting
 
 from workflow import PrimaryRun, SecondaryAnalysis
+
+import sys
 
 
 def yaml_configuration():
@@ -84,14 +86,22 @@ def create_workflow():
 
     bcl_directory = args.get("bcl", None)
     fastq_directories = args.get("fastq", [])
-    aggregate = args.get("aggregate-mlibs", list())
-    combine_assign = args.get("combine",None)
+    aggregate = args.get("aggregate_mlibs", list())
+    libbase = args.get("lib_base", None)
+    combine_assign = args.get("combine",[])
     prefix = args.get("prefix","./")
     output = args.get("out","./")
+    recipe = args.get("recipe","basic")
 
     results = Results(output, prefix)
 
     runner   = PrimaryRun(workflow, prefix, output)
+
+    if aggregate != None and len(aggregate) > 0:
+        runner.aggregate_libraries(aggregate, libbase)
+        workflow = runner.get_workflow()
+        return workflow
+
     bcls     = runner.set_bcl(bcl_directory)
     fastqs   = runner.set_fastq(fastq_directories)
     workflow = runner.get_workflow()
@@ -99,15 +109,17 @@ def create_workflow():
     tenx_analysis = args.get("tenx", None)
     rdata = args.get("rdata", None)
 
-    analysis  = SecondaryAnalysis(workflow, prefix, output)
-    analysis.set_directory(tenx_analysis)
-    # analysis.run_scater()
-    analysis.set_rdata(rdata)
+    secondary_analysis  = SecondaryAnalysis(workflow, prefix, output)
+    tenx = TenxAnalysis(tenx_analysis)
 
-    results.add_analysis(tenx_analysis)
-    # results.add_workflow(analysis.rscript)
-    results.add_filtered_sce(analysis.sce_filtered)
-    results.add_final_sce(analysis.sce_final)
+    secondary_analysis.run_scater()
+    secondary_analysis.build_sce(tenx)
+    secondary_analysis.set_rdata(rdata)
+
+    results.add_workflow(secondary_analysis.rscript)
+    results.add_filtered_sce(secondary_analysis.sce_filtered)
+    results.add_final_sce(secondary_analysis.sce_final)
+
 
     umi = os.path.join(output,"umi_distribution.png")
     mito = os.path.join(output,"mito_distribution.png")
@@ -119,17 +131,38 @@ def create_workflow():
     results.add_plot(ribo,"Ribo Distribution")
     results.add_plot(freq,"Highest Frequency")
 
-    # analysis.run_cell_assign(rho_matrix)
+    # rho_matrix = generate_json(this_data)
 
-    analysis.run_cell_assign(rho_matrix, additional=combine_assign)
-
+    # analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
+    #
     # results.add_cellassign_pkl(analysis.cell_assign_fit)
     # results.add_cellassign_raw(analysis.cell_assign_rdata)
-    #
-    # analysis.run_scviz(analysis.cell_assign_fit)
 
-    # #
-    # path = analysis.plot_tsne_by_cluster()
+    # perplexity = 5
+    # component = 2
+    # analysis.run_scviz(perplexity, 2)
+    # analysis.run_scviz(perplexity, 10)
+    # analysis.run_scviz(perplexity, 50)
+    # tenx = TenxAnalysis(tenx_analysis)
+
+    path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis)
+    path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, raw=True)
+    template = os.path.join(output,"5_2_raw/*0.tsv")
+    embedding_file = glob.glob(template)[0]
+    path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=2, raw=True)
+
+    template = os.path.join(output,"5_10_raw/*0.tsv")
+    embedding_file = glob.glob(template)[0]
+    path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=10, raw=True)
+
+    template = os.path.join(output,"5_50_raw/*0.tsv")
+    embedding_file = glob.glob(template)[0]
+    path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50, raw=True)
+
+
+    # path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, rep="UMAP", raw=True)
+    # path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, raw=True)
+
     # results.add_plot(path, "TSNE by Cluster")
     # path = analysis.plot_tsne_by_cell_type()
     # results.add_plot(path, "TSNE by Cell Type")
@@ -146,7 +179,7 @@ def create_workflow():
     #     )
     # )
 
-    workflow = analysis.get_workflow()
+    workflow = secondary_analysis.get_workflow()
     return workflow
 
 
@@ -162,8 +195,10 @@ if __name__ == '__main__':
     argparser.add_argument('--out', type=str, help="Base directory for output")
     argparser.add_argument("--prefix", type=str, help="Analysis prefix")
     argparser.add_argument("--aggregate-mlibs", nargs='+', type=str, help="Library prefixes to aggregate.")
+    argparser.add_argument("--lib-base", type=str, help="Directory containing libraries to aggregate by prefix (must provide aggregate-mlibs)")
     argparser.add_argument("--combine", nargs='+', type=str, help="Library prefixes to aggregate.")
     argparser.add_argument("--yaml", type=str, help="Configuration settings for pipeline.")
+    argparser.add_argument("--recipe", type=str, help="Normalization and filtering recipe.")
 
     parsed_args = argparser.parse_args()
 

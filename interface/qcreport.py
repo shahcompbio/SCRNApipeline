@@ -130,7 +130,7 @@ class QCReport(object):
         self.normalize(output)
 
         #output.write("sizeFactors(sce) <- librarySizeFactors(sce)\n")
-        self.calc_size_factors(output)
+        # self.calc_size_factors(output)
 
         #
         # output.write("fit <- trendVar(sce, use.spikes=FALSE)\n")
@@ -163,13 +163,13 @@ class QCReport(object):
         output.write("clusters <- igraph::cluster_walktrap(snn.gr)\n")
         output.write("sce$Cluster <- factor(clusters$membership)\n")
 
-        output.write("sce <- runPCA(sce)\n")
+        output.write("sce <- runPCA(sce, pcs.compute=10)\n")
         output.write("png('pca.png')\n")
         output.write("plotPCA(sce)\n")
         output.write("dev.off()\n")
 
 
-        output.write("sce <- runTSNE(sce)\n")
+        output.write("sce <- runTSNE.multicore(sce)\n")
         output.write("png('tsne.png')\n")
         output.write("plotTSNE(sce)\n")
         output.write("dev.off()\n")
@@ -177,12 +177,11 @@ class QCReport(object):
         output.write("plotTSNE(sce, colour_by='Cluster')\n")
         output.write("dev.off()\n")
 
-
-        output.write("png('highestExprs.png')\n")
-        #output.write("rowData(sce)$SymbolUnique <- make.names(rowData(sce)$Symbol, unique=T)\n")
-        #output.write("plotHighestExprs(sce, exprs_values = 'counts', feature_names_to_plot= 'SymbolUnique')\n")
-        self.highest_exprs(output)
-        output.write("dev.off()\n")
+        # output.write("png('highestExprs.png')\n")
+        # #output.write("rowData(sce)$SymbolUnique <- make.names(rowData(sce)$Symbol, unique=T)\n")
+        # #output.write("plotHighestExprs(sce, exprs_values = 'counts', feature_names_to_plot= 'SymbolUnique')\n")
+        # self.highest_exprs(output)
+        # output.write("dev.off()\n")
 
         output.write("saveRDS(sce, file=args[2])\n")
 

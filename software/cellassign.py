@@ -4,13 +4,16 @@ from rpy2.robjects import r, pandas2ri
 from rpy2.rinterface import RRuntimeError
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.genemarkermatrix import GeneMarkerMatrix
+from interface.tenxanalysis import TenxAnalysis
 from utils.plotting import celltypes
+import subprocess
 import numpy
 import os
 import sys
 from utils.config import *
 import pickle
 import pandas
+import scanpy.api as sc
 
 os.environ["RETICULATE_PYTHON"] = sys.executable
 
@@ -40,11 +43,11 @@ class CellAssign(object):
         genes = list(map(lambda x: x.upper(), list(sce_experiment.rowData["Symbol"])))
         barcodes = list(sce_experiment.colData["Barcode"])
         matrix = sce_experiment.assays[assay]
-
         def subset(gene,row):
             return gene in common_genes
         assert len(genes) == matrix.shape[0]
         rows = matrix[numpy.array([subset(gene,row) for gene,row in zip(genes,matrix)])]
+        print(rows)
         genes = set(genes).intersection(set(common_genes))
         matrix = numpy.transpose(rows.toarray())
         if filter_cells:
@@ -65,64 +68,65 @@ class CellAssign(object):
             matrix = numpy.array(_matrix)
         matrix_o = numpy.transpose(matrix)
         matrix_f = []
-        assert matrix_o.shape[0] == len(barcodes), "not the same"
         _barcodes = []
         for barcode, row in zip(barcodes,matrix_o):
             if list(row).count(0.0) != len(row):
                 matrix_f.append(row)
                 _barcodes.append(barcode)
         barcodes = _barcodes
+        print("Dims",matrix_o.shape, len(barcodes))
+        #assert matrix_o.shape[0] == len(barcodes), "not the same"
         matrix_t = numpy.transpose(matrix_f)
         return matrix_t, barcodes
 
     @staticmethod
-    def run_em(rdata, filename, prefix, additional, assay="counts", symbol="Symbol", filter_cells=True, filter_transcripts=True):
-        # sce_experiment = SingleCellExperiment.fromRData(rdata)
-        # assert symbol in sce_experiment.rowData.keys()
-        # genes = list(map(lambda x: x.upper(), list(sce_experiment.rowData["Symbol"])))
-        # barcodes = list(sce_experiment.colData["Barcode"])
-        # matrix = sce_experiment.assays[assay]
-        # rho = eval(open(rho_matrix, "r").read())
-        # rho = GeneMarkerMatrix(rho)
-        # def subset(gene,row):
-        #     return gene in rho.genes
-        # assert len(genes) == matrix.shape[0]
-        # rows = matrix[numpy.array([subset(gene,row) for gene,row in zip(genes,matrix)])]
-        # genes = set(genes).intersection(set(rho.genes))
-        # matrix = numpy.transpose(rows.toarray())
-        # if filter_cells:
-        #     _matrix = []
-        #     for row in matrix:
-        #         if list(map(int, row)).count(0) > 0:
-        #             _matrix.append(list(row))
-        #     matrix = numpy.array(_matrix)
-        #     _matrix = []
-        # matrix_t = numpy.transpose(matrix)
-        # if filter_transcripts:
-        #     _genes = []
-        #     for gene, col in zip(genes,matrix_t):
-        #         if list(map(int, row)).count(0) > 0:
-        #             _matrix.append(list(col))
-        #             _genes.append(gene)
-        #     genes = _genes
-        #     matrix = numpy.array(_matrix)
-        # matrix_o = numpy.transpose(matrix)
-        # matrix_f = []
-        # assert matrix_o.shape[0] == len(barcodes), "not the same"
-        # _barcodes = []
-        # for barcode, row in zip(barcodes,matrix_o):
-        #     if list(row).count(0.0) != len(row):
-        #         matrix_f.append(row)
-        #         _barcodes.append(barcode)
-        # barcodes = _barcodes
-        # matrix_t = numpy.transpose(matrix_f)
-        rho = eval(open(rho_matrix, "r").read())
-        rho = GeneMarkerMatrix(rho)
-        all_rdata = [rdata] + additional
+    def write_input(matrix, rho, factors):
+        robjects.r.assign("input_matrix",matrix)
+        robjects.r("saveRDS(input_matrix,file='input_matrix.rdata')")
+        robjects.r.assign("rho",rho)
+        robjects.r("saveRDS(rho,file='rho.rdata')")
+        robjects.r.assign("s",factors)
+        robjects.r("saveRDS(s,file='factors.rdata')")
+
+    @staticmethod
+    def run_command_line(matrix, rho, factors):
+        CellAssign.write_input(matrix, rho, factors)
+        CellAssign.command()
+        subprocess.call(["Rscript","run_cellassign.R"])
+
+    @staticmethod
+    def run_em(tenx, rdata, filename, prefix, rho_matrix, additional, assay="counts", symbol="Symbol", filter_cells=True, filter_transcripts=True, run_cmd=True, run_process=False):
+        tenx = TenxAnalysis(tenx)
+        print("Running EM")
+        if additional is not None:
+            all_rdata = [rdata] + additional
+        else:
+            all_rdata = [rdata]
+        print("Creating Adata")
+        adata = tenx.create_scanpy_adata()
+        print("Computing Neighbors...")
+        sc.pp.neighbors(adata)
+        print("Finding Clusters...")
+        sc.tl.louvain(adata)
+        print(adata.obs["louvain"])
+        exit(0)
+        print("Finding Possible Markers...")
+        sc.tl.rank_genes_groups(adata,"louvain")
         genes = CellAssign.common_genes(all_rdata, symbol)
+        rho = GeneMarkerMatrix(rho_matrix)
         genes = set(rho.genes).intersection(set(genes))
+        print("Intersecting markers with possible cell types...")
+        marker_groups = list(adata.uns["rank_genes_groups"]["names"])
+        pval_corr = list(adata.uns["rank_genes_groups"]["pvals"])
+        possible_markers = []
+        for pvals, grp in zip(pval_corr,marker_groups):
+            for pval, gene in zip(pvals,grp):
+                if float(pval) <= 0.001:
+                    possible_markers.append(gene)
+        possible_markers = set(possible_markers)
+        genes = genes.intersection(possible_markers)
+        print(len(genes))
         matrix_t, barcodes = CellAssign.load(rdata, assay, symbol, filter_cells, filter_transcripts, genes)
-        print("First", matrix_t.shape)
         if additional is not None:
             for sce in additional:
                 _matrix_t, _barcodes = CellAssign.load(sce, assay, symbol, filter_cells, filter_transcripts, genes)
@@ -130,36 +134,39 @@ class CellAssign(object):
                 matrix_t = numpy.hstack((matrix_t,_matrix_t))
                 barcodes += _barcodes
         matrix_t = numpy.array(matrix_t)
-        print("SHAPE",matrix_t.shape)
+        print("Calculating Size Factors")
         s = EdgeRInterface.calcNormFactors(matrix_t, method="TMM")
         s = pandas2ri.ri2py(s)
-        rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=False))
-
-        # df_dict = dict()
-        # for gene, row in zip(genes,matrix_t):
-        #     df_dict[gene] = row
-        # df = pandas.DataFrame(df_dict)
-        # cor = df.corr()
-        #
-        # cor.loc[:,:] =  numpy.tril(cor.values, k=-1)
-        # cor = cor.stack()
-        # groups = cor[cor > 0.5]
-        # print(groups)
-
+        print("Finished size factors")
+        rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=True))
+        print("Building Rho")
         matrix = numpy.transpose(matrix_t)
         assert matrix.shape[1] == rho_binary_matrix.shape[0], "Dimensions between rho and expression matrix do not match!"
-        fit = CellAssignInterface.cellassign_em(matrix, rho_binary_matrix, s=s, data_type="RNAseq")
-        #pickle.dump(fit, open(filename,"wb"))
-        #fit = pickle.load(open(filename,"rb"))
+        if run_process:
+            fit = CellAssignInterface.cellassign_em(exprs_obj = matrix, rho = rho_binary_matrix, s = s)
+            robjects.r.assign("cell_assign_fit", fit)
+            robjects.r("saveRDS(cell_assign_fit, file='cell_assign_fit.rdata')".format(prefix))
+        else:
+            CellAssign.run_command_line(matrix, rho_binary_matrix, s)
+            fit = r.readRDS("cell_assign_fit.rdata")
         pyfit = dict(zip(fit.names, list(fit)))
         pyfit["Barcode"] = barcodes
-        # mle_params = dict(zip(pyfit["mle_params"].names, list(pyfit["mle_params"])))
         conversion = dict(zip(sorted(list(set(pyfit["cell_type"]))),rho.celltypes()))
         cells = []
         for assignment in list(pyfit["cell_type"]):
             cells.append(conversion[assignment])
         pyfit["cell_type"] = cells
         pickle.dump(pyfit, open(filename,"wb"))
-        #celltypes(cells,"cell_types.png",[cell.split("_")[0] for cell in rho.cells])
-        robjects.r.assign("cell_assign_fit", fit)
-        robjects.r("saveRDS(cell_assign_fit, file='{}_cellassign.rdata')".format(prefix))
+
+    @staticmethod
+    def command():
+        script = open("run_cellassign.R","w")
+        script.write("""
+        library(cellassign)
+        gene_expression_data <- readRDS("input_matrix.rdata")
+        rho <- readRDS("rho.rdata")
+        s <- readRDS("factors.rdata")
+        cas <- cellassign_em(exprs_obj = gene_expression_data, rho = rho, s = s)
+        saveRDS(cas,"cell_assign_fit.rdata")
+        """)
+        script.close()

@@ -16,7 +16,7 @@ class CellRanger(object):
             )
             cmd.append(value)
         cmd.append("--disable-ui")
-        cmd.append("--jobmode=lsf")
+        # cmd.append("--jobmode=lsf")
         return cmd
 
     @staticmethod
@@ -46,7 +46,7 @@ class CellRanger(object):
             definition["sample_names"] = '[" ' + fastq.sampleid + ' "]'
             sample_definitions.append(definition)
         output = open(mrofile, "w")
-        output.write(content.format(sample_id=run_id,sample_definitions=sample_definitions,reference=config.reference))
+        output.write(content.format(sample_id=run_id, sample_definitions=sample_definitions, reference=config.reference))
         output.close()
 
 
@@ -66,9 +66,9 @@ class CellRanger(object):
         args["id"] = "run_{}".format(prefix)
         args["csv"] = csv
         args["normalize"] = "none"
-        args["localmem"] = "24"
-        args["mempercore"] = "3"
-        args["localcores"] = "8"
+        # args["localmem"] = "24"
+        # args["mempercore"] = "3"
+        # args["localcores"] = "8"
         cmd = CellRanger.cmd("aggr",args)
         subprocess.call(cmd)
 

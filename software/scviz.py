@@ -1,7 +1,12 @@
 from interface.singlecellexperiment import SingleCellExperiment
+from interface.tenxanalysis import TenxAnalysis
+import scanpy.api as pl
 import pickle
 import subprocess
+import tqdm
 import numpy
+import os
+import scipy
 
 class SCViz(object):
 
@@ -12,40 +17,53 @@ class SCViz(object):
             cmd.append("--{}".format(flag))
             cmd.append(value)
         cmd.append("--verbose")
+        print(" ".join(cmd))
         return cmd
 
     @staticmethod
-    def create_input_files(sce_experiment, cell_assign_fit):
-        cell_types = dict(zip(cell_assign_fit["Barcode"], cell_assign_fit["cell_type"]))
-        barcodes = sce_experiment.colData["Barcode"]
-        counts = sce_experiment.assays["counts"].transpose()
-        data_matrix = []
-        output = open("labels.tsv","w")
-        output.write("CellType\n")
-        for barcode, features in zip(barcodes, counts.toarray()):
-            try:
-                cell_type = cell_types[barcode]
-                output.write(cell_type + "\n")
-                data_matrix.append(list(features))
-            except KeyError as e:
-                continue
+    def generate_config(perplexity, components, output):
+        filename = os.path.join(output,"model.yaml")
+        yaml = SCViz.config(perplexity, components)
+        output = open(filename,"w")
+        output.write(yaml)
         output.close()
-        header = "\t".join(sce_experiment.rowData["Symbol"])
-        matrix = numpy.array(data_matrix)
-        print(matrix.shape)
-        assert len(sce_experiment.rowData["Symbol"]) == matrix.shape[1]
-        numpy.savetxt("matrix.tsv",matrix,delimiter="\t",header=header)
+        return filename
 
     @staticmethod
-    def train(rdata, output, cellassignments):
-        print("Loading SCVIS")
-        fit = pickle.load(open(cellassignments,"rb"))
-        sce_experiment = SingleCellExperiment.fromRData(rdata)
-        SCViz.create_input_files(sce_experiment, fit)
+    def create_input_files(rdata, components, output):
+        print("RDATA", rdata)
+        sce = SingleCellExperiment.fromRData(rdata)
+        embedding = sce.reducedDims["PCA"]
+        counts = []
+        for i in range(0,len(embedding),components):
+            counts.append(embedding[i:i+(components)])
+        print(counts)
+        for row in counts:
+            print(len(row))
+        print(len(counts))
+        counts = numpy.array(counts)
+        print(counts.shape)
+        header = []
+        for c in range(components):
+            header.append("PC_{}".format(c))
+        header = "\t".join(header)
+        filename = os.path.join(output,"matrix.tsv")
+        numpy.savetxt(filename, counts, delimiter="\t", header=header)
+        return filename
+
+    @staticmethod
+    def train(output, perplexity, components, rdata):
+        output = os.path.join(output, "{}_{}_raw".format(perplexity, components))
+        try:
+            os.makedirs(output)
+        except Exception as e:
+            pass
+        yaml = SCViz.generate_config(perplexity, components, output)
+        matrix_file = SCViz.create_input_files(rdata, components, output)
         args = dict()
-        args["data_matrix_file"] = "matrix.tsv"
+        args["data_matrix_file"] = matrix_file
         args["out_dir"] = output
-        args["data_label_file"] = "labels.tsv"
+        args["config_file"] = yaml
         cmd = SCViz.cmd("train", args)
         print("Running...\n")
         print(" ".join(cmd)+"\n")
@@ -60,3 +78,48 @@ class SCViz(object):
         args["pretrained_model_file"] = embedding
         cmd = SCViz.cmd("map",args)
         subprocess.call(cmd)
+
+    @staticmethod
+    def config(perplexity, components):
+        configuration = """
+        hyperparameter: {
+          optimization: {
+            method: Adam,
+            learning_rate: 0.01
+          },
+
+          batch_size: 512,
+          max_epoch: 50,
+          regularizer_l2: 0.001,
+
+          perplexity: """
+        configuration += str(perplexity) + ", "
+        configuration += """
+          seed: 1
+        }
+
+        architecture: {
+          latent_dimension: """
+        configuration +=  "2, "
+        configuration += """
+          inference: {
+            layer_size: [128, 64, 32],
+          },
+
+          model: {
+            layer_size: [32, 32, 32, 64, 128],
+          },
+
+          activation: "ELU"
+        }
+        """
+        return configuration
+
+
+if __name__ == '__main__':
+    valid_barcodes = list(SingleCellExperiment.fromRData("/home/nceglia/jobs/post_treatment_full/sce_final.rdata").colData["Barcode"])
+    valid_symbols = list(SingleCellExperiment.fromRData("/home/nceglia/jobs/post_treatment_full/sce_final.rdata").rowData["Symbol"])
+    analysis = TenxAnalysis("/home/nceglia/jobs/post_treatment_full/run_post_treatment_full/outs")
+    pkl_fit = "/home/nceglia/jobs/post_treatment_full/cell_assign_fit.pkl"
+    fit = pickle.load(open(pkl_fit,"rb"))
+    SCViz.create_input_files(analysis, fit, None, valid_barcodes, valid_symbols)

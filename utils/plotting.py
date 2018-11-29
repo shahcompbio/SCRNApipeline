@@ -7,102 +7,153 @@ from utils.config import *
 import pickle
 from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.singlecellexperiment import SingleCellExperiment
+from interface.tenxanalysis import TenxAnalysis
 import numpy
 import collections
+import os
+import sys
+from PIL import Image
+import fpdf
+
 sns.set(style="darkgrid")
 
 
-def celltypes(rdata, cell_assign_fit, prefix):
+def combine_figures(figures,filename):
+    pdf = fpdf.FPDF()
+    for figure in figures:
+        pdf.add_page()
+        pdf.image(figure,10,10,250,150)
+    pdf.output(filename, "F")
+
+def celltypes(rdata, cell_assign_fit, prefix, output):
+    sce = SingleCellExperiment.fromRData(rdata)
+    valid_barcodes = sce.colData["Barcode"]
     fit = pickle.load(open(cell_assign_fit,"rb"))
     cell_types = list(fit["cell_type"])
+    barcodes = list(fit["Barcode"])
     order = []
-    for cell_type in cell_types:
+    invalid = 0
+    for barcode, cell_type in zip(barcodes[:len(valid_barcodes)],cell_types[:len(valid_barcodes)]):
+        if barcode not in valid_barcodes:
+            invalid += 1
+            continue
         if cell_type not in order:
             order.append(cell_type)
         if len(order) == len(set(cell_types)):
             break
+    print("Dismissed {} barcodes.".format(invalid))
     f, ax = plt.subplots(figsize=(12,6))
     ax.set_title("Cell Type Assignments - {}".format(prefix))
-    sns.countplot(cell_types, palette="tab10")
-    ax.set_xticklabels(labels=order,rotation=30)
+    sns.countplot(cell_types, palette="tab10", order=list(sorted(order)))
+    ax.set_xticklabels(labels=list(sorted(order)),rotation=30)
     plt.tight_layout()
-    plt.savefig("cell_types.png")
+    figure = os.path.join(output, "cell_types.png")
+    plt.savefig(figure)
 
-#TODO Possible Removal
-# def tsne_scanpy(tenx, cell_assign_fit, perplexity, filename):
-#     tenx.create_scanpy_adata()
-#     print("Plotting TSNE")
-#     projection = tenx.tsne(perplexity=perplexity)
-#     fit = pickle.load(open(cell_assign_fit,"rb"))
-#     cells = fit["cell_type"]
-#     barcodes = fit["Barcode"]
-#     assert len(cells) == len(barcodes), "No matching barcodes {} <-> {}".format(len(cells), len(barcodes))
-#     assignments = dict(zip(barcodes, cells))
-#     x = []
-#     y = []
-#     labels = []
-#     for barcode, coordinate in projection.items():
-#         try:
-#             labels.append(assignments[barcode])
-#             x.append(float(coordinate[0]))
-#             y.append(float(coordinate[1]))
-#         except Exception as e:
-#             continue
-#     f, ax = plt.subplots(figsize=(10,8))
-#     sns.scatterplot(x=x, y=y, hue=labels,alpha=0.3)
-#     ax.set_title("TSNE - Cell Types")
-#     ax.legend()
-#     plt.tight_layout()
-#     plt.savefig(filename)
+def tsne_perplex(tenx, cell_assign_fit, perplexity, filename):
+    tenx.create_scanpy_adata()
+    print("Plotting TSNE")
+    projection = tenx.tsne(perplexity=perplexity)
+    fit = pickle.load(open(cell_assign_fit,"rb"))
+    cells = fit["cell_type"]
+    barcodes = fit["Barcode"]
+    assert len(cells) == len(barcodes), "No matching barcodes {} <-> {}".format(len(cells), len(barcodes))
+    assignments = dict(zip(barcodes, cells))
+    x = []
+    y = []
+    labels = []
+    for barcode, coordinate in projection.items():
+        try:
+            labels.append(assignments[barcode])
+            x.append(float(coordinate[0]))
+            y.append(float(coordinate[1]))
+        except Exception as e:
+            continue
+    f, ax = plt.subplots(figsize=(10,8))
+    sns.scatterplot(x=x, y=y, hue=labels,alpha=0.3)
+    ax.set_title("TSNE - Cell Types")
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(filename)
 
 def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
-    fit = pickle.load(open(cell_assign_fit,"rb"))
-    cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
     sce = SingleCellExperiment.fromRData(rdata)
     tsne_dims = sce.reducedDims["TSNE"]
-    clusters = sce.colData["Cluster"]
     barcodes = sce.colData["Barcode"]
-    assert len(tsne_dims)/2 == len(clusters)
-    tsne_dims = numpy.array(tsne_dims).reshape(2, len(clusters))
+    fit = pickle.load(open(cell_assign_fit,"rb"))
+    cell_types = dict(zip(fit["Barcode"][:len(barcodes)],fit["cell_type"][:len(barcodes)]))
+    tsne_dims = numpy.array(tsne_dims).reshape(2, len(barcodes))
     x_coded = dict(zip(barcodes, tsne_dims[0]))
     y_coded = dict(zip(barcodes, tsne_dims[1]))
     x = []
     y = []
     for barcode, cell_type in cell_types.items():
-        x.append(x_coded[barcode])
-        y.append(y_coded[barcode])
+        try:
+            x_val = x_coded[barcode]
+            y_val = y_coded[barcode]
+            x.append(x_val)
+            y.append(y_val)
+        except Exception as e:
+            continue
     f, ax = plt.subplots(figsize=(10,8))
-    sns.scatterplot(x=x, y=y, hue=fit["cell_type"],alpha=0.85,palette="tab10")
+    sns.scatterplot(x=x, y=y, hue=fit["cell_type"][:len(x)],alpha=0.85, palette="tab10")
     ax.set_title("TSNE - Cell Types - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
     plt.savefig("tsne_by_cell_type.png")
 
-def tsne_by_cluster(rdata, cell_assign_fit, prefix):
-    fit = pickle.load(open(cell_assign_fit,"rb"))
-    cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
+def tsne_by_cluster(rdata, tenx_analysis, prefix):
+    tenx = TenxAnalysis(tenx_analysis)
     sce = SingleCellExperiment.fromRData(rdata)
+    cluster_labels = tenx.clusters(sce)
     tsne_dims = sce.reducedDims["TSNE"]
-    clusters = sce.colData["Cluster"]
     barcodes = sce.colData["Barcode"]
-    assert len(tsne_dims)/2 == len(clusters)
-    tsne_dims = numpy.array(tsne_dims).reshape(2, len(clusters))
+    tsne_dims = numpy.array(tsne_dims).reshape(2, len(barcodes))
     x_coded = dict(zip(barcodes, tsne_dims[0]))
     y_coded = dict(zip(barcodes, tsne_dims[1]))
-    cluster_coded = dict(zip(barcodes, clusters))
     x = []
     y = []
-    cluster = []
-    for barcode, cell_type in cell_types.items():
+    clusters = []
+    for barcode, cluster in cluster_labels.items():
+        clusters.append("Cluster {}".format(cluster))
         x.append(x_coded[barcode])
         y.append(y_coded[barcode])
-        cluster.append("Cluster {}".format(cluster_coded[barcode]))
     f, ax = plt.subplots(figsize=(10,8))
-    sns.scatterplot(x=x, y=y, hue=cluster, alpha=0.85, palette="viridis")
+    sns.scatterplot(x=x, y=y, hue=clusters, alpha=0.85, palette="viridis")
     ax.set_title("TSNE - Clusters - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("tsne_by_cluster.png")
+    plt.savefig("tsne_by_cluster_{}.png".format(prefix))
+
+def scvis_by_cluster(rdata, tenx_analysis, prefix, embedding_file, pcs):
+    tenx = TenxAnalysis(tenx_analysis)
+    sce = SingleCellExperiment.fromRData(rdata)
+    cluster_labels = tenx.clusters(sce,embedding_file=embedding_file, pcs=pcs)
+    tsne_dims = []
+    print("FILE", embedding_file)
+    rows = open(embedding_file,"r").read().splitlines()
+    rows.pop(0)
+    for row in rows:
+        row = row.split("\t")
+        row = list(map(float,row[1:]))
+        tsne_dims.append(row)
+    barcodes = sce.colData["Barcode"]
+    tsne_dims = numpy.array(tsne_dims).reshape(2, len(barcodes))
+    x_coded = dict(zip(barcodes, tsne_dims[0]))
+    y_coded = dict(zip(barcodes, tsne_dims[1]))
+    x = []
+    y = []
+    clusters = []
+    for barcode, cluster in cluster_labels.items():
+        clusters.append("Cluster {}".format(cluster))
+        x.append(x_coded[barcode])
+        y.append(y_coded[barcode])
+    f, ax = plt.subplots(figsize=(10,8))
+    sns.scatterplot(x=x, y=y, hue=clusters, alpha=0.85, palette="viridis")
+    ax.set_title("SCVIS - Clusters - {}".format(prefix))
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig("svis_by_cluster_{}.png".format(prefix))
 
 def cell_type_by_cluster(rdata, cell_assign_fit, prefix):
     fit = pickle.load(open(cell_assign_fit,"rb"))
@@ -164,3 +215,9 @@ def umap(rdata, tenx, cell_assign_fit, filename):
     ax.legend()
     plt.tight_layout()
     plt.savefig(filename)
+
+
+if __name__ == '__main__':
+    import glob
+    pngs = glob.glob("/home/nceglia/jobs/SC_723/*/*0.png")
+    combine_figures(pngs,"SC_723_vis.pdf")
