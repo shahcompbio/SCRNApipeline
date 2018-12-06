@@ -75,18 +75,18 @@ class CellAssign(object):
                 _barcodes.append(barcode)
         barcodes = _barcodes
         print("Dims",matrix_o.shape, len(barcodes))
-        #assert matrix_o.shape[0] == len(barcodes), "not the same"
+        # assert matrix_o.shape[0] == len(barcodes), "not the same"
         matrix_t = numpy.transpose(matrix_f)
         return matrix_t, barcodes
 
     @staticmethod
     def write_input(matrix, rho, factors):
         robjects.r.assign("input_matrix",matrix)
-        robjects.r("saveRDS(input_matrix,file='input_matrix.rdata')")
+        robjects.r("saveRDS(input_matrix,file='rdata/input_matrix.rdata')")
         robjects.r.assign("rho",rho)
-        robjects.r("saveRDS(rho,file='rho.rdata')")
+        robjects.r("saveRDS(rho,file='rdata/rho.rdata')")
         robjects.r.assign("s",factors)
-        robjects.r("saveRDS(s,file='factors.rdata')")
+        robjects.r("saveRDS(s,file='rdata/factors.rdata')")
 
     @staticmethod
     def run_command_line(matrix, rho, factors):
@@ -102,35 +102,13 @@ class CellAssign(object):
             all_rdata = [rdata] + additional
         else:
             all_rdata = [rdata]
-        print("Creating Adata")
-        adata = tenx.create_scanpy_adata()
-        print("Computing Neighbors...")
-        sc.pp.neighbors(adata)
-        print("Finding Clusters...")
-        sc.tl.louvain(adata)
-        print(adata.obs["louvain"])
-        exit(0)
-        print("Finding Possible Markers...")
-        sc.tl.rank_genes_groups(adata,"louvain")
         genes = CellAssign.common_genes(all_rdata, symbol)
         rho = GeneMarkerMatrix(rho_matrix)
         genes = set(rho.genes).intersection(set(genes))
-        print("Intersecting markers with possible cell types...")
-        marker_groups = list(adata.uns["rank_genes_groups"]["names"])
-        pval_corr = list(adata.uns["rank_genes_groups"]["pvals"])
-        possible_markers = []
-        for pvals, grp in zip(pval_corr,marker_groups):
-            for pval, gene in zip(pvals,grp):
-                if float(pval) <= 0.001:
-                    possible_markers.append(gene)
-        possible_markers = set(possible_markers)
-        genes = genes.intersection(possible_markers)
-        print(len(genes))
         matrix_t, barcodes = CellAssign.load(rdata, assay, symbol, filter_cells, filter_transcripts, genes)
         if additional is not None:
             for sce in additional:
                 _matrix_t, _barcodes = CellAssign.load(sce, assay, symbol, filter_cells, filter_transcripts, genes)
-                print("Other",_matrix_t.shape)
                 matrix_t = numpy.hstack((matrix_t,_matrix_t))
                 barcodes += _barcodes
         matrix_t = numpy.array(matrix_t)
@@ -138,7 +116,7 @@ class CellAssign(object):
         s = EdgeRInterface.calcNormFactors(matrix_t, method="TMM")
         s = pandas2ri.ri2py(s)
         print("Finished size factors")
-        rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=True))
+        rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=False))
         print("Building Rho")
         matrix = numpy.transpose(matrix_t)
         assert matrix.shape[1] == rho_binary_matrix.shape[0], "Dimensions between rho and expression matrix do not match!"

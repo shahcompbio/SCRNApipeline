@@ -32,7 +32,6 @@ def generate_json(analysis):
             if gene in adata.var_names:
                 vals = adata[:, gene].X
                 dropout = list(vals).count(0)
-                #print(dropout, adata.shape)
                 if dropout == adata.shape[0]:
                     print("dropped")
                     continue

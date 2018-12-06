@@ -2,14 +2,17 @@ import os
 import collections
 import glob
 import scanpy.api as sc
-from utils import config
+from sklearn import cluster
 import pandas
 import subprocess
-from utils import config
+from utils.config import Configuration
+import matplotlib.pyplot as plt
 import numpy
+import shutil
 
 from interface.singlecellexperiment import SingleCellExperiment
 
+config = Configuration()
 
 class TenxAnalysis(object):
 
@@ -67,7 +70,6 @@ class TenxAnalysis(object):
 
     def summary(self):
         web_summary = os.path.join(self.path, "web_summary.html")
-        #assert os.path.exists(web_summary), "No summary report found!"
         return web_summary
 
     def tsne_cellranger_projection(self):
@@ -81,36 +83,31 @@ class TenxAnalysis(object):
 
     def create_scanpy_adata(self, fast_load=True):
         print(self.filtered_matrices(), "PATH")
-        self.adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
-        self.adata.var_names_make_unique()
-        self.adata.barcodes = pandas.read_csv(os.path.join(self.filtered_matrices(),'barcodes.tsv'), header=None)[0]
+        adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        adata.var_names_make_unique()
+        adata.barcodes = pandas.read_csv(os.path.join(self.filtered_matrices(),'barcodes.tsv'), header=None)[0]
         if not fast_load:
-            sc.tl.pca(self.adata)
-            sc.pp.neighbors(self.adata)
-            sc.tl.umap(self.adata)
-            sc.tl.tsne(self.adata)
-        return self.adata
+            sc.tl.pca(adata)
+            sc.pp.neighbors(adata)
+            sc.tl.umap(adata)
+            sc.tl.tsne(adata)
+        return adata
 
-    def clusters(self, sce, rep=None, pcs=2, embedding_file=None):
-        adata = self.create_scanpy_adata(fast_load=False)
+    def clusters(self, sce, rep=None, pcs=2, embedding_file=None, copy = False):
+        adata = self.create_scanpy_adata(fast_load=True)
         adata.var_names_make_unique()
         valid_transcripts = sce.rowData["Symbol"]
         valid_barcodes = sce.colData["Barcode"]
         adata = adata[valid_barcodes,:]
         adata = adata[:,valid_transcripts]
-        print("Computing Neighbors...")
-        if rep == None:
-            sc.pp.neighbors(adata)
-            sc.tl.louvain(adata,resolution=0.07)
+        if rep == None or rep=="PCA":
+            projection = sce.getReducedDims("PCA")
+            adata.obsm["X_pca"] = projection.T
+            sc.pp.neighbors(adata, use_rep="X_pca")
         elif rep=="TSNE":
-            embedding = sce.reducedDims["TSNE"]
-            counts = []
-            for i in range(0,len(embedding),pcs):
-                counts.append(embedding[i:i+(pcs)])
-            counts = numpy.array(counts)
-            adata.obsm["TSNE"] = numpy.array(counts)
-            sc.pp.neighbors(adata,n_neighbors=10,use_rep="TSNE")
-            sc.tl.louvain(adata,resolution=0.05)
+            projection = sce.getReducedDims("TSNE")
+            adata.obsm["X_tsne"] = projection.T
+            sc.pp.neighbors(adata, use_rep="X_tsne")
         elif rep=="SCVIS":
             if embedding_file is None:
                 raise AssertionError("scvis requires embedding file.")
@@ -120,56 +117,19 @@ class TenxAnalysis(object):
             for row in rows:
                 row = list(map(float, row.split("\t")[1:]))
                 embedding.append(row)
-            embedding = numpy.array(embedding)
-            print(embedding.shape)
-            adata.obsm["SCVIS"] = embedding
-            sc.pp.neighbors(adata,n_neighbors=10,use_rep="SCVIS")
-            sc.tl.louvain(adata,resolution=0.2)
-        print("Finding Clusters...")
+            counts = numpy.array(embedding)
+            adata.obsm["X_scvis"] = counts
+            sc.pp.neighbors(adata,use_rep="X_scvis")
+        sc.tl.leiden(adata, resolution=config.resolution)
+        if not copy:
+            return adata.obs["leiden"]
+        else:
+            return adata
 
-        return adata.obs["louvain"].to_dict()
-
-    def umap(self, min_dist=None):
-        if min_dist is not None:
-            sc.tl.umap(self.adata, min_dist=min_dist)
-        return dict(zip(list(self.adata.obs.index), list(self.adata.obsm["X_umap"])))
-
-    def tsne(self, perplexity=None):
-        if perplexity is not None:
-            sc.tl.tsne(self.adata, perplexity=perplexity)
-        return dict(zip(list(self.adata.obs.index), list(self.adata.obsm["X_tsne"])))
-
-    def clustering_labels(self, k=10):
-        labels = collections.defaultdict(dict)
-        cluster_files = glob.glob(os.path.join(self.clustering, "*/clusters.csv"))
-        for cluster_file in cluster_files:
-            num_clusters = os.path.splitext(cluster_file.split("/")[-2])[0]
-            cells = open(cluster_file,"r").read().splitlines()
-            for cell in cells[1:]:
-                barcode, cluster = cell.split(",")
-                labels[num_clusters][barcode] = cluster
-        labels = labels["kmeans_{}_clusters".format(k)]
-        return labels
-
-    def get_tsne_plots_by_perplexity(self):
-        if len(glob.glob(os.path.join(self.top_level, "tsne_*.png"))) == 0: exit(0)
-        for plot in glob.glob(os.path.join(self.top_level, "tsne_*.png")):
-            yield plot
-
-    def map_projection(self, cellassignments, output):
-        output = open(output,"w")
-        rows = open(self.projection,"r").read().splitlines()
-        header = rows.pop(0).split(",")
-        header[0] = "Cell_Type"
-        output.write("\t".join(header[1:])+"\n")
-        for row in rows:
-            row = row.split(",")
-            try:
-                cellassignments[row[0]]
-                output.write("\t".join(row[1:])+"\n")
-            except KeyError as e:
-                continue
-        output.close()
+    def markers_by_clusters(self, sce, rep=None, pcs=2, embedding_file=None):
+        adata = self.clusters(sce, rep=rep, pcs=pcs, embedding_file=embedding_file, copy=True)
+        sc.tl.rank_genes_groups(adata, 'leiden')
+        sc.pl.rank_genes_groups(adata, n_genes=20, sharey=False, save='_{}_{}.png'.format(rep,pcs))
 
     def filtered_h5(self):
         return os.path.join(self.path, "filtered_gene_bc_matrices_h5.h5")
@@ -260,8 +220,6 @@ class TenxAnalysis(object):
                     output.write("{} {} {}\n".format(row, col, matrix[gene][barcode]))
                     row += 1
                     col += 1
-                    # use_genes.append(gene)
-                    # use_barcodes.append(barcode)
                 except Exception as e:
                     continue
         output.close()

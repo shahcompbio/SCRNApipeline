@@ -1,14 +1,20 @@
-reference = "/igo_large/reference/GRCh38"
-build = reference.split("/")[-1]
-#build = "hg19"
-print("Running for Build {}".format(build))
-rho_matrix = "/home/nceglia/codebase/refdata/rho.json"
-copy_number_data = None
-scviz_embedding = None
 import os
-if not os.path.exists(rho_matrix):
-    rho_matrix = "/Users/ceglian/Codebase/refdata/rho.json"
-perplexes = [5,10,20,30]
-mdistances = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]
-components = [10,20,50]
-chemistry = "SC5P-R2"
+import yaml
+yaml_file = os.path.join(os.path.split(os.path.realpath(__file__))[0], "../settings.yaml")
+
+def yaml_configuration():
+    with open(yaml_file, "r") as f:
+        doc = yaml.load(f)
+        return doc
+
+class Configuration(object):
+    def __init__(self):
+        self.reference = "/igo_large/reference/GRCh38"
+        self.rho_matrix = "/home/nceglia/codebase/refdata/rho.json"
+        self.copy_number_data = None
+        self.scviz_embedding = None
+        self.build = self.reference.split("/")[-1]
+        self.chemistry = "SC5P-R2"
+        overrides = yaml_configuration()
+        for attr, value in overrides.items():
+            setattr(self, attr, value)

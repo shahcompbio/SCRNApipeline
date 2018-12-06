@@ -4,6 +4,8 @@ from rpy2.robjects import r, pandas2ri
 from rpy2.robjects.methods import RS4
 from rpy2.robjects.packages import importr
 
+import scanpy.api as sc
+
 import os
 import pandas
 import numpy
@@ -61,9 +63,19 @@ class SingleCellExperiment(RS4):
         data = robjects.r["ExpressionSet"](assayData=sme.slots["assays"])
         return data
 
-    def save(self,filename):
+    def save(self, filename):
         robjects.r.assign("sce",self.rs4)
         robjects.r("saveRDS(sce, file='{}')".format(filename))
+
+    def asScanpy(self):
+        adata = sc.read_h5ad("./rdata/h5/assays.h5")
+        return adata
+
+    def getReducedDims(self, method):
+        if method not in self.reducedDims.keys():
+            raise KeyError("{} was never computed.".format(method))
+        embedding = self.reducedDims[method.upper()]
+        return numpy.array(embedding).reshape(2,len(self.colData["Barcode"]))
 
     @classmethod
     def fromRS4(sce_class, rs4_object):

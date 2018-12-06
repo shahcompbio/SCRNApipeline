@@ -1,8 +1,12 @@
 import os
 import subprocess
+from markdown2 import Markdown
 
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.fastqdirectory import FastQDirectory
+from utils.config import Configuration
+
+config = Configuration()
 
 def cat(fastq, output, prefix):
     result = os.path.join(output, "{}.fastq.gz".format(prefix))
@@ -31,17 +35,16 @@ def imports(handle):
 
 
 def exportMD(results):
-    markdown = os.path.join(results.output,"{}_analysis.md".format(results.prefix))
+    results.finalize()
+    markdown = os.path.join(results.report_dir,"{}_analysis.md".format(config.prefix))
     output = open(markdown,"w")
-    output.write("# {} Analysis\n".format(results.prefix.replace('_',' ').capitalize()))
+    output.write("# {} Analysis\n".format(config.prefix.replace('_',' ').upper()))
     output.write("***\n")
     output.write("\n\n## Pipeline Output\n")
-    output.write(" - [CellRanger Summary]({})\n".format(results.analysis.summary()))
-    output.write(" - SCE Object (Filtered Matrices Output of CellRanger): {}\n\n".format(results.filtered_sce))
-    output.write(" - SCE Object (After R Workflow [basic]): {}\n\n".format(results.final_sce))
-    output.write(" - R Workflow: {}\n\n".format(results.script))
-    output.write(" - Cell Assign RData: {}\n\n".format(results.raw))
-    output.write(" - Barcode to Cell Type: {}\n\n".format(results.barcode_to_celltype()))
+    output.write(" - [CellRanger Summary]({})\n".format(results.summary))
+    output.write(" - SCE Object (TenX Filtered): {}\n\n".format(results.filtered_sce))
+    output.write(" - QC Workflow {}\n\n".format(config.qc_type))
+    # output.write(" - R QC Workflow: {}\n\n".format(results.script))
 
     output.write("***\n")
     output.write("## Quality Control\n")
@@ -54,11 +57,12 @@ def exportMD(results):
         output.write("![{}]({})\n".format(plot["desc"],plot["path"]))
 
     output.close()
-    convertHTML(markdown)
+    convertHTML(markdown, results.report_dir)
 
 
-def convertHTML(markdown):
-    output = open("results.html","w")
+def convertHTML(markdown, report):
+    output = open(os.path.join(report, "{}_results.html".format(config.prefix)),"w")
+    markdowner = Markdown()
     html = markdowner.convert(open(markdown,"r").read())
     output.write(html)
     output.close()
@@ -71,7 +75,7 @@ def exportRMD(fastq, analysis, scater_workflow, prefix, sce, output_path):
     output.write("***\n")
     output.write("\n\n## Pipeline Output\n")
     output.write(" - [CellRanger Summary]({})\n".format(analysis.summary()))
-    output.write(" - FastQ location: {}\n\n".format(fastq.path))
+    output.write(" - FastQ location: {}\n\n".format(os.fastq.path))
 
     output.write("***\n")
     output.write("## Quality Control\n")
@@ -83,8 +87,7 @@ def exportRMD(fastq, analysis, scater_workflow, prefix, sce, output_path):
     mito = os.path.join(output_path,"mito_distribution.png")
     ribo = os.path.join(output_path, "ribo_distribution.png")
     freq = os.path.join(output_path, "highestExprs.png")
-    # tsne = os.path.join(output, "tsne.png")
-    # umap = os.path.join(output, "umap.png")
+
     tsne_by_cluster = os.path.join(output_path, "tsne_by_cluster.png")
     tsne_by_cell_type = os.path.join(output_path, "tsne_by_cell_type.png")
     cell_type_by_cluster = os.path.join(output_path, "cluster_by_cell_type.png")
@@ -137,6 +140,7 @@ class ScaterCode(object):
         output.write("library(stringr)\n")
         output.write("library(scran)\n")
         output.write("library(Rtsne)\n")
+        output.write("library(HDF5Array)\n")
         output.write("\n\n")
 
     def read(self, output, rdata):
@@ -193,21 +197,11 @@ class ScaterCode(object):
         self.normalize(output)
         self.qc_metrics(output)
         output.write("sce_2 <- runPCA(sce)\n")
-        output.write("png('raw_pca.png')\n")
-        output.write("plotPCA(sce_2)\n")
-        output.write("dev.off()\n")
-        output.write("sce_t <- runTSNE(sce)\n")
-        output.write("saveRDS(sce_t,'raw_tsne.rdata')\n")
-        output.write("png('raw_tsne.png')\n")
-        output.write("plotTSNE(sce_t)\n")
-        output.write("dev.off()\n")
-        output.write("saveRDS(sce_2,'raw_pca_2.rdata')\n")
+        output.write("saveRDS(sce_2,'./rdata/raw_pca_2.rdata')\n")
         output.write("sce_10 <- runPCA(sce,ncomponents=10)\n")
-        output.write("saveRDS(sce_10,'raw_pca_10.rdata')\n")
+        output.write("saveRDS(sce_10,'./rdata/raw_pca_10.rdata')\n")
         output.write("sce_50 <- runPCA(sce,ncomponents=50)\n")
-        output.write("saveRDS(sce_50,'raw_pca_50.rdata')\n")
-
-        self.filter_empty_drops(output)
+        output.write("saveRDS(sce_50,'./rdata/raw_pca_50.rdata')\n")
 
         output.write("png('umi_distribution.png')\n")
         self.umi(output)
@@ -215,14 +209,12 @@ class ScaterCode(object):
         output.write("png('features_distribution.png')\n")
         output.write("hist(sce$log10_total_features_by_counts, breaks=20, col='grey80',xlab='Log-total number of expressed features')\n")
         output.write("dev.off()\n")
-        output.write("png('mito_distribution.png')\n")
+        output.write("png('./figures/mito_distribution.png')\n")
         self.mito(output)
         output.write("dev.off()\n")
-        output.write("png('ribo_distribution.png')\n")
+        output.write("png('./figures/ribo_distribution.png')\n")
         self.ribo(output)
         output.write("dev.off()\n")
-        self.filter_high_mito(output)
-        self.filter_low_count_genes(output)
         self.normalize(output)
         self.calc_size_factors(output)
 
@@ -232,61 +224,45 @@ class ScaterCode(object):
             output.write("decomp <- decomposeVar(sce, fit)\n")
             output.write("top.hvgs <- order(decomp$bio, decreasing=TRUE)\n")
 
-            """
-            batch <- rep(c("1", "2"), each=100)
-            design <- model.matrix(~batch)
-            alt.fit2 <- trendVar(sce, design=design)
-            alt.decomp2 <- decomposeVar(sce, alt.fit)
-            """
-
-            output.write("png('mean_var.png.png')\n")
+            output.write("png('./figures/mean_var.png.png')\n")
             output.write("plot(decomp$mean, decomp$total, xlab='Mean log-expression', ylab='Variance')\n")
             output.write("dev.off()\n")
-
-
-            output.write("pca_data <- prcomp(t(log1p(assay(sce))))\n")
-            output.write("tsne_data <- Rtsne(pca_data$x[,1:50], pca = FALSE)\n")
-            output.write("reducedDims(sce) <- SimpleList(PCA=pca_data$x, TSNE=tsne_data$Y)\n")
 
             output.write("null.dist <- correlateNull(ncol(sce), iter=1e5)\n")
             output.write("cor.pairs <- correlatePairs(sce, subset.row=top.hvgs[1:200], null.dist=null.dist)\n")
             output.write("head(cor.pairs)\n")
-            output.write("write.csv(cor.pairs, file = 'correlated.csv', row.names=FALSE)\n")
-
-        # output.write("print('running snn graph...')\n")
-        # # output.write("mcp <- MulticoreParam(workers=64, tasks=0, progressbar=TRUE, log=TRUE)\n")
-        # output.write("snn.gr <- buildSNNGraph(sce)\n")
-        # output.write("print('walktrap clustering...')\n")
-        # output.write("clusters <- igraph::cluster_walktrap(snn.gr)\n")
-        # output.write("sce$Cluster <- factor(clusters$membership)\n")
+            output.write("write.csv(cor.pairs, file = './tables/correlated.csv', row.names=FALSE)\n")
 
         output.write("print('running pca...')\n")
         output.write("sce <- runPCA(sce)\n")
-        output.write("png('pca.png')\n")
+        output.write("png('./figures/pca.png')\n")
         output.write("plotPCA(sce)\n")
+        output.write("dev.off()\n")
+
+        output.write("print('running pca...')\n")
+        output.write("sce <- runUMAP(sce)\n")
+        output.write("png('umap.png')\n")
+        output.write("plotUMAP(sce)\n")
         output.write("dev.off()\n")
 
         output.write("print('running tsne...')\n")
         output.write("sce <- runTSNE(sce)\n")
-        output.write("png('tsne.png')\n")
+        output.write("png('./figures/tsne.png')\n")
         output.write("plotTSNE(sce)\n")
         output.write("dev.off()\n")
 
-        output.write("sce_2 <- runPCA(sce)\n")
-        output.write("saveRDS(sce_2,'pca_2.rdata')\n")
-        output.write("sce_10 <- runPCA(sce,ncomponents=10)\n")
-        output.write("saveRDS(sce_10,'pca_10.rdata')\n")
-        output.write("sce_50 <- runPCA(sce,ncomponents=50)\n")
-        output.write("saveRDS(sce_50,'pca_50.rdata')\n")
-        # output.write("png('tsne_by_cluster.png')\n")
-        # output.write("plotTSNE(sce, colour_by='Cluster)\n")
-        # output.write("dev.off()\n")
+        output.write("saveHDF5SummarizedExperiment(sce, dir = './rdata/h5/')\n")
 
-        # output.write("png('highestExprs.png')\n")
-        # output.write("rowData(sce)$SymbolUnique <- make.names(rowData(sce)$Symbol, unique=T)\n")
-        # output.write("plotHighestExprs(sce, exprs_values = 'counts', feature_names_to_plot= 'SymbolUnique')\n")
-        # self.highest_exprs(output)
-        # output.write("dev.off()\n")
+        output.write("sce_2 <- runPCA(sce)\n")
+        output.write("saveRDS(sce_2,'./rdata/pca_2.rdata')\n")
+        output.write("sce_10 <- runPCA(sce,ncomponents=10)\n")
+        output.write("saveRDS(sce_10,'./rdata/pca_10.rdata')\n")
+        output.write("sce_50 <- runPCA(sce,ncomponents=50)\n")
+        output.write("saveRDS(sce_50,'./rdata/pca_50.rdata')\n")
+
+        output.write("png('./figures/highestExprs.png')\n")
+        self.highest_exprs(output)
+        output.write("dev.off()\n")
 
         output.write("saveRDS(sce, file=args[2])\n")
 

@@ -31,7 +31,6 @@ class SCViz(object):
 
     @staticmethod
     def create_input_files(rdata, components, output):
-        print("RDATA", rdata)
         sce = SingleCellExperiment.fromRData(rdata)
         embedding = sce.reducedDims["PCA"]
         counts = []

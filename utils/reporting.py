@@ -1,42 +1,87 @@
 from interface.tenxanalysis import TenxAnalysis
+from utils.config import Configuration
+
 import os
 import pickle
+import glob
+import shutil
+
+config = Configuration()
 
 class Results(object):
 
-    def __init__(self, output, prefix):
+    def __init__(self, output):
         self.plots = list()
         self.output = output
-        self.prefix = prefix
+        self.report_dir = os.path.join(self.output,"{}_report/".format(config.prefix))
+        self.sce_dir = os.path.join(self.output, "rdata")
+        self.tables_dir = os.path.join(self.output, "tables")
+        self.figures_dir = os.path.join(self.output, "figures")
+        try:
+            os.makedirs(self.report_dir)
+        except Exception as e:
+            pass
+        try:
+            os.makedirs(self.sce_dir)
+        except Exception as e:
+            pass
+        try:
+            os.makedirs(self.tables_dir)
+        except Exception as e:
+            pass
+        try:
+            os.makedirs(self.figures_dir)
+        except Exception as e:
+            pass
+        self.paths = []
 
     def qc_reports(self):
-        for html in glob.glob(self.output, "fastqc/*/*.html"):
+        for html in glob.glob(os.path.join(self.output, "fastqc/*/*.html")):
             yield html
 
     def add_analysis(self, tenx):
         self.analysis = TenxAnalysis(tenx)
+        summary = self.analysis.summary()
+        dest = os.path.join(self.report_dir, "summary.html")
+        self.paths.append((summary,dest))
+        self.summary = "summary.html"
 
     def add_workflow(self, script):
-        self.script = script
+        dest = os.path.join(self.report_dir, os.path.split(script)[1])
+        self.script = os.path.split(dest)[1]
+        self.paths.append((script,dest))
 
-    def add_filtered_sce(self, sce):
-        self.filtered_sce = sce
-
-    def add_final_sce(self, sce):
-        self.final_sce = sce
+    def add_sce(self, sce):
+        dest =  os.path.join(self.report_dir, os.path.split(sce)[1])
+        self.filtered_sce = os.path.split(dest)[1]
+        self.paths.append((sce,dest))
 
     def add_cellassign_pkl(self, pkl):
-        self.pkl = pkl
+        dest =  os.path.join(self.report_dir, os.path.split(pkl)[1])
+        self.pkl = os.path.split(dest)[1]
+        self.paths.append((pkl,dest))
 
     def add_cellassign_raw(self, raw):
-        self.raw = raw
+        dest =  os.path.join(self.report_dir, os.path.split(raw)[1])
+        self.raw = os.path.split(dest)[1]
+        self.paths.append((raw,dest))
+
 
     def add_plot(self, path, header, desc=""):
+        if not os.path.exists(path): return
         plot = dict()
-        plot["path"] = path
+        dest =  os.path.join(self.report_dir, os.path.split(path)[1])
+        self.paths.append((path, dest))
+
+        plot["path"] = os.path.split(dest)[1]
         plot["header"] = header
         plot["desc"] = desc
         self.plots.append(plot)
+
+    def finalize(self):
+        for source, dest in self.paths:
+            shutil.copyfile(source, dest)
+
 
     def barcode_to_celltype(self):
         tsv = os.path.join(self.output,"barcode_to_celltype.tsv")

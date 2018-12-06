@@ -43,6 +43,7 @@ import argparse
 import glob
 import os
 import yaml
+import sys
 
 import pypeliner.workflow
 import pypeliner.app
@@ -61,28 +62,17 @@ from interface.tenxanalysis import TenxAnalysis
 from interface.genemarkermatrix import GeneMarkerMatrix, generate_json
 
 from utils.reporting import Results
-from utils.config import *
+from utils.config import Configuration
 from utils.export import exportMD, ScaterCode
 from utils import plotting
 
 from workflow import PrimaryRun, SecondaryAnalysis
 
-import sys
-
-
-def yaml_configuration():
-    yaml_file = args.get("yaml",None)
-    if yaml_file is not None:
-        with open(yaml_file, "r") as f:
-            doc = yaml.load(f)
-            for var in doc:
-                print(var)
-
+config = Configuration()
 
 def create_workflow():
 
     workflow = pypeliner.workflow.Workflow()
-    yaml_configuration()
 
     bcl_directory = args.get("bcl", None)
     fastq_directories = args.get("fastq", [])
@@ -93,14 +83,24 @@ def create_workflow():
     output = args.get("out","./")
     recipe = args.get("recipe","basic")
 
-    results = Results(output, prefix)
-
+    results = Results(output)
     runner   = PrimaryRun(workflow, prefix, output)
 
+    """
+    Aggregating Libraries
+    """
+
     if aggregate != None and len(aggregate) > 0:
-        runner.aggregate_libraries(aggregate, libbase)
-        workflow = runner.get_workflow()
-        return workflow
+        if agg_type == "tenx":
+            runner.aggregate_libraries_tenx(aggregate, libbase)
+            args["tenx"] = os.path.join(output,"run_{}/outs".format(prefix))
+        if agg_type == "scanorama":
+            runner.aggregate_libraries_scanorama(aggregate,libbase)
+            args["tenx"] = os.path.join(output,"run_{}/outs".format(prefix))
+
+    """
+    Setup
+    """
 
     bcls     = runner.set_bcl(bcl_directory)
     fastqs   = runner.set_fastq(fastq_directories)
@@ -112,72 +112,127 @@ def create_workflow():
     secondary_analysis  = SecondaryAnalysis(workflow, prefix, output)
     tenx = TenxAnalysis(tenx_analysis)
 
+    """
+    QC
+    """
+
     secondary_analysis.run_scater()
     secondary_analysis.build_sce(tenx)
     secondary_analysis.set_rdata(rdata)
 
+    results.add_analysis(tenx_analysis)
     results.add_workflow(secondary_analysis.rscript)
-    results.add_filtered_sce(secondary_analysis.sce_filtered)
-    results.add_final_sce(secondary_analysis.sce_final)
+    results.add_sce(secondary_analysis.sce)
 
 
-    umi = os.path.join(output,"umi_distribution.png")
-    mito = os.path.join(output,"mito_distribution.png")
-    ribo = os.path.join(output, "ribo_distribution.png")
-    freq = os.path.join(output, "highestExprs.png")
+    umi = os.path.join(output,"figures/umi_distribution.png")
+    mito = os.path.join(output,"figures/mito_distribution.png")
+    ribo = os.path.join(output, "figures/ribo_distribution.png")
+    freq = os.path.join(output, "figures/highestExprs.png")
 
     results.add_plot(umi,"UMI Distribution")
     results.add_plot(mito,"Mito Distribution")
     results.add_plot(ribo,"Ribo Distribution")
     results.add_plot(freq,"Highest Frequency")
 
-    # rho_matrix = generate_json(this_data)
+    """
+    Cell Assign
+    """
+    if config.run_cellassign:
+        tenx = TenxAnalysis(tenx_analysis)
+        if hasattr(config, "rho_matrix"):
+            rho_matrix = eval(open(config.rho_matrix,"r").read())
+        else:
+            raise AssertionError("Not implemented.")
+        secondary_analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
+        results.add_cellassign_pkl(secondary_analysis.cell_assign_fit)
+        results.add_cellassign_raw(secondary_analysis.cell_assign_rdata)
 
-    # analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
-    #
-    # results.add_cellassign_pkl(analysis.cell_assign_fit)
-    # results.add_cellassign_raw(analysis.cell_assign_rdata)
+        path = secondary_analysis.plot_cell_types()
+        results.add_plot(path, "Cell Type Frequency")
+        path = secondary_analysis.plot_cell_type_by_cluster(tenx_analysis)
+        results.add_plot(path, "Cell Type by Cluster")
 
-    # perplexity = 5
-    # component = 2
-    # analysis.run_scviz(perplexity, 2)
-    # analysis.run_scviz(perplexity, 10)
-    # analysis.run_scviz(perplexity, 50)
-    # tenx = TenxAnalysis(tenx_analysis)
+    """
+    SCVis
+    """
+    if config.run_scvis:
+        secondary_analysis.run_scviz(config.perplexity, 2)
+        secondary_analysis.run_scviz(config.perplexity, 10)
+        secondary_analysis.run_scviz(config.perplexity, 50)
 
-    path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis)
-    path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, raw=True)
-    template = os.path.join(output,"5_2_raw/*0.tsv")
-    embedding_file = glob.glob(template)[0]
-    path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=2, raw=True)
+    """
+    Cluster Analysis
+    """
+    if config.clustering:
+        path = secondary_analysis.plot_pca_by_cluster(tenx_analysis)
+        results.add_plot(path, "PCA by Cluster")
 
-    template = os.path.join(output,"5_10_raw/*0.tsv")
-    embedding_file = glob.glob(template)[0]
-    path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=10, raw=True)
+        path = secondary_analysis.pca_by_cluster_markers(tenx_analysis)
+        results.add_plot(path, "Gene Markers by Cluster (PCA)")
 
-    template = os.path.join(output,"5_50_raw/*0.tsv")
-    embedding_file = glob.glob(template)[0]
-    path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50, raw=True)
+        path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis)
+        results.add_plot(path, "TSNE by Cluster")
+
+        path = secondary_analysis.tsne_by_cluster_markers(tenx_analysis)
+        results.add_plot(path, "Gene Markers by Cluster (tsne)")
+
+        # path = secondary_analysis.plot_umap_by_cluster(tenx_analysis)
+        # results.add_plot(path, "UMAP by Cluster")
+        #
+        # path = secondary_analysis.umap_by_cluster_markers(tenx_analysis)
+        # results.add_plot(path, "Gene Markers by Cluster (UMAP)")
+
+    if config.plot_scvis:
+        template = os.path.join(output,"scvis/5_2/*0.tsv")
+        embedding_file = glob.glob(template)[0]
+        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=2)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Cluster (Dim 2)")
+
+        path = secondary_analysis.scvis_by_cluster_markers(tenx_analysis, embedding_file, pcs=2)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Markers (Dim 2)")
+
+        template = os.path.join(output,"scvis/5_10/*0.tsv")
+        embedding_file = glob.glob(template)[0]
+        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=10)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Cluster (Dim 10)")
+
+        path = secondary_analysis.scvis_by_cluster_markers(tenx_analysis, embedding_file, pcs=10)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Markers (Dim 10)")
+
+        template = os.path.join(output,"scvis/5_50/*0.tsv")
+        embedding_file = glob.glob(template)[0]
+        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Cluster (Dim 50)")
+
+        path = secondary_analysis.scvis_by_cluster_markers(tenx_analysis, embedding_file, pcs=50)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Markers (Dim 50)")
+
+    """
+    Gene Level
+    """
 
 
-    # path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, rep="UMAP", raw=True)
-    # path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, raw=True)
 
-    # results.add_plot(path, "TSNE by Cluster")
-    # path = analysis.plot_tsne_by_cell_type()
-    # results.add_plot(path, "TSNE by Cell Type")
-    # path = analysis.plot_cell_types()
-    # results.add_plot(path, "Cell Type Frequency")
-    # path = analysis.plot_cell_type_by_cluster()
-    # results.add_plot(path, "Cell Type by Cluster")
-    # results.barcode_to_celltype()
-    # workflow.transform (
-    #     name = "{}_markdown".format(prefix),
-    #     func = exportMD,
-    #     args = (
-    #         results,
-    #     )
-    # )
+    """
+    Reporting
+    """
+    if config.report:
+        workflow.transform (
+            name = "{}_markdown".format(prefix),
+            func = exportMD,
+            args = (
+                results,
+            )
+        )
+
+
 
     workflow = secondary_analysis.get_workflow()
     return workflow
