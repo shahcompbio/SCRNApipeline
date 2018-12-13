@@ -71,11 +71,15 @@ class SingleCellExperiment(RS4):
         adata = sc.read_h5ad("./rdata/h5/assays.h5")
         return adata
 
-    def getReducedDims(self, method):
+    def getReducedDims(self, method, n=None):
         if method not in self.reducedDims.keys():
             raise KeyError("{} was never computed.".format(method))
         embedding = self.reducedDims[method.upper()]
-        return numpy.array(embedding).reshape(2,len(self.colData["Barcode"]))
+        x_dim = int(len(embedding) / len(self.colData["Barcode"]))
+        projection = numpy.array(embedding).reshape(x_dim,len(self.colData["Barcode"]))
+        if n is not None:
+            projection = projection[:n,:]
+        return projection
 
     @classmethod
     def fromRS4(sce_class, rs4_object):

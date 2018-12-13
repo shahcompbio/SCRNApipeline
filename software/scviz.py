@@ -32,16 +32,11 @@ class SCViz(object):
     @staticmethod
     def create_input_files(rdata, components, output):
         sce = SingleCellExperiment.fromRData(rdata)
-        embedding = sce.reducedDims["PCA"]
+        embedding = sce.getReducedDims("PCA",n=components)
         counts = []
         for i in range(0,len(embedding),components):
             counts.append(embedding[i:i+(components)])
-        print(counts)
-        for row in counts:
-            print(len(row))
-        print(len(counts))
         counts = numpy.array(counts)
-        print(counts.shape)
         header = []
         for c in range(components):
             header.append("PC_{}".format(c))
@@ -64,7 +59,6 @@ class SCViz(object):
         args["out_dir"] = output
         args["config_file"] = yaml
         cmd = SCViz.cmd("train", args)
-        print("Running...\n")
         print(" ".join(cmd)+"\n")
         subprocess.call(cmd)
         print("Finished!")

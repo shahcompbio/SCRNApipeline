@@ -72,20 +72,43 @@ class TenxAnalysis(object):
         web_summary = os.path.join(self.path, "web_summary.html")
         return web_summary
 
-    def tsne_cellranger_projection(self):
-        rows = open(self.cellranger_tsne, "r").read().splitlines()
-        rows.pop(0)
-        projection = dict()
-        for row in rows:
-            row = row.split(",")
-            projection[row[0]] = row[1:]
-        return projection
-
-    def create_scanpy_adata(self, fast_load=True):
-        print(self.filtered_matrices(), "PATH")
+    def get_genes(self, sce):
+        barcodes = sce.colData["Barcode"]
+        _transcripts = sce.rowData["Symbol"]
         adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
-        adata.var_names_make_unique()
+        transcripts = []
+        for symbol in _transcripts:
+            if symbol not in adata.var.index:
+                symbol = symbol.replace(".","-")
+                if symbol not in adata.var.index:
+                    symbol = symbol.split("-")
+                    symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
+                    if symbol not in adata.var.index:
+                        symbol = symbol.split(".")[0]
+            transcripts.append(symbol)
+        return transcripts
+
+    def create_scanpy_adata(self, sce, fast_load=True, assay="counts"):
+        barcodes = sce.colData["Barcode"]
+        _transcripts = sce.rowData["Symbol"]
+        adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        transcripts = []
+        for symbol in _transcripts:
+            if symbol not in adata.var.index:
+                symbol = symbol.replace(".","-")
+                if symbol not in adata.var.index:
+                    symbol = symbol.split("-")
+                    symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
+                    if symbol not in adata.var.index:
+                        symbol = symbol.split(".")[0]
+            transcripts.append(symbol)
         adata.barcodes = pandas.read_csv(os.path.join(self.filtered_matrices(),'barcodes.tsv'), header=None)[0]
+        adata = adata[:,transcripts]
+        assert set(adata.var.index) == set(transcripts), "Issues with symbol conversion."
+        adata = adata[barcodes,:]
+        t1 = set(adata.var.index)
+        t2 = set(transcripts)
+        adata.var_names_make_unique()
         if not fast_load:
             sc.tl.pca(adata)
             sc.pp.neighbors(adata)
@@ -93,15 +116,21 @@ class TenxAnalysis(object):
             sc.tl.tsne(adata)
         return adata
 
+    def get_scvis_dimensions(self, embedding_file):
+        if embedding_file is None:
+            raise AssertionError("scvis requires embedding file.")
+        rows = open(embedding_file,"r").read().splitlines()
+        header = rows.pop(0)
+        embedding = []
+        for row in rows:
+            row = list(map(float, row.split("\t")[1:]))
+            embedding.append(row)
+        return numpy.array(embedding).reshape(2,len(rows))
+
     def clusters(self, sce, rep=None, pcs=2, embedding_file=None, copy = False):
-        adata = self.create_scanpy_adata(fast_load=True)
-        adata.var_names_make_unique()
-        valid_transcripts = sce.rowData["Symbol"]
-        valid_barcodes = sce.colData["Barcode"]
-        adata = adata[valid_barcodes,:]
-        adata = adata[:,valid_transcripts]
+        adata = self.create_scanpy_adata(sce, fast_load=True)
         if rep == None or rep=="PCA":
-            projection = sce.getReducedDims("PCA")
+            projection = sce.getReducedDims("PCA",n=pcs)
             adata.obsm["X_pca"] = projection.T
             sc.pp.neighbors(adata, use_rep="X_pca")
         elif rep=="TSNE":
@@ -127,9 +156,10 @@ class TenxAnalysis(object):
             return adata
 
     def markers_by_clusters(self, sce, rep=None, pcs=2, embedding_file=None):
-        adata = self.clusters(sce, rep=rep, pcs=pcs, embedding_file=embedding_file, copy=True)
+        adata = self.clusters(sce, pcs=pcs, embedding_file=embedding_file, copy=True)
         sc.tl.rank_genes_groups(adata, 'leiden')
         sc.pl.rank_genes_groups(adata, n_genes=20, sharey=False, save='_{}_{}.png'.format(rep,pcs))
+        return adata.uns
 
     def filtered_h5(self):
         return os.path.join(self.path, "filtered_gene_bc_matrices_h5.h5")

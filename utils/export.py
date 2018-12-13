@@ -1,6 +1,7 @@
 import os
 import subprocess
 from markdown2 import Markdown
+import shutil
 
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.fastqdirectory import FastQDirectory
@@ -126,7 +127,6 @@ def exportRMD(fastq, analysis, scater_workflow, prefix, sce, output_path):
 
     output.close()
 
-
 class ScaterCode(object):
 
     def __init__(self, output):
@@ -141,6 +141,7 @@ class ScaterCode(object):
         output.write("library(scran)\n")
         output.write("library(Rtsne)\n")
         output.write("library(HDF5Array)\n")
+        output.write("library(Seurat)\n")
         output.write("\n\n")
 
     def read(self, output, rdata):
@@ -156,6 +157,9 @@ class ScaterCode(object):
         output.write("sum(e.out$FDR <= 0.01, na.rm=TRUE)\n")
         output.write("sce <- sce[,which(e.out$FDR <= 0.01)]\n")
 
+    def filter_cells(self, output):
+        output.write('sce <- FilterCells(object = sce, subset.names = c("nGene", "percent.mito"), low.thresholds = c(200, -Inf), high.thresholds = c(2500, 0.05))\n')
+
     def qc_metrics(self, output):
         output.write("""sce <- calculateQCMetrics(sce, feature_controls=list(Mito=which(location=='MT'), Ribo=which(str_detect(rowData(sce)$Symbol, '^RP(L|S)'))))\n""")
 
@@ -168,13 +172,59 @@ class ScaterCode(object):
     def ribo(self, output):
         output.write("hist(sce$pct_counts_Ribo, breaks=20, col='firebrick4',xlab='Proportion of reads in ribosomal genes')\n")
 
-    def filter_high_mito(self, output):
-        output.write("high.mito <- isOutlier(sce$pct_counts_Mito, nmads=6, type='higher')\n")
+    def mito_percentage(self, output):
+        output.write("mito.genes <- grep(pattern = '^MT-', x = rownames(x = sce@data), value = TRUE)\n")
+        output.write("percent.mito <- Matrix::colSums(sce@raw.data[mito.genes, ])/Matrix::colSums(sce@raw.data)\n")
+        output.write("sce <- AddMetaData(object = sce, metadata = percent.mito, col.name = 'percent.mito')\n")
+
+    def get_symbols(self, output):
+        output.write("symbols <- rowData(sce)$Symbol\n")
+
+
+    def set_symbols(self, output):
+        output.write("rowData(sce)$Symbol <- symbols\n")
+
+    # def set_symbols(self, output):
+    #     output.write("sce <- AddMetaData(object = sce, metadata = symbols, row.name = 'Symbol')\n")
+
+    def violin_gene_mito_umi(self, output):
+        output.write('VlnPlot(object = sce, features.plot = c("nGene", "nUMI", "percent.mito"), nCol = 3)\n')
+
+    def normalize_seurat(self, output):
+        output.write('sce <- NormalizeData(object = sce, normalization.method = "LogNormalize", scale.factor = 10000)\n')
+
+    def gene_plot(self, output):
+        output.write('par(mfrow = c(1, 2))\n')
+        output.write('GenePlot(object = sce, gene1 = "nUMI", gene2 = "percent.mito")\n')
+        output.write('GenePlot(object = sce, gene1 = "nUMI", gene2 = "nGene")\n')
+
+    def filter_high_mito(self, output, stds=6):
+        output.write("high.mito <- isOutlier(sce$pct_counts_Mito, nmads={}, type='higher')\n".format(stds))
         output.write("sce <- sce[,!high.mito]\n")
 
-    def filter_low_count_genes(self, output):
-        output.write("keep_genes <- nexprs(sce, byrow=TRUE) >= 4\n")
+    def filter_low_count_genes(self, output, n_genes=4):
+        output.write("keep_genes <- nexprs(sce, byrow=TRUE) >= {}\n".format(n_genes))
         output.write("sce <- sce[keep_genes,]\n")
+
+    def find_highly_variable(self, output):
+        output.write('sce <- FindVariableGenes(object = sce, mean.function = ExpMean, dispersion.function = LogVMR, x.low.cutoff = 0.0125, x.high.cutoff = 3, y.cutoff = 0.5)\n')
+        output.write('highly_variable_genes <- sce@var.genes\n')
+
+    def select_highly_variable(self, output):
+        output.write("sce <- sce[highly_variable_genes,]\n")
+
+    def regress_out(self, output):
+        output.write('sce <- ScaleData(object = sce, vars.to.regress = c("nUMI", "percent.mito"))\n')
+
+    def sce_to_seurat(self, output):
+        output.write('sce <- Convert(from = sce, to = "seurat")\n')
+
+    def seurat_to_sce(self, output):
+        output.write('sce <- Convert(from = sce, to = "sce")\n')
+
+    def add_dim_names(self, output):
+        output.write('rownames(sce) <- make.names(rowData(sce)$Symbol, unique=TRUE)\n')
+        output.write('colnames(sce) <- colData(sce)$Barcode\n')
 
     def normalize(self, output):
         output.write("sce <- normalize(sce)\n")
@@ -182,11 +232,31 @@ class ScaterCode(object):
     def calc_size_factors(self, output):
         output.write("sizeFactors(sce) <- librarySizeFactors(sce)\n")
 
-    def highest_exprs(self, output):
-        output.write("rowData(sce)$SymbolUnique <- make.names(rowData(sce)$Symbol, unique=T)\n")
-        output.write("plotHighestExprs(sce, exprs_values = 'counts', feature_names_to_plot= 'SymbolUnique')\n")
+    def highest_exprs(self, output, make_unique = False):
+        if make_unique:
+            output.write("rowData(sce)$SymbolUnique <- make.names(rowData(sce)$Symbol, unique=T)\n")
+            output.write("plotHighestExprs(sce, exprs_values = 'counts', feature_names_to_plot= 'SymbolUnique')\n")
+        else:
+            output.write("plotHighestExprs(sce, exprs_values = 'counts', feature_names_to_plot= 'Symbol')\n")
+
+    def mean_variance_trend(self, output):
+        output.write("new.trend <- makeTechTrend(x=sce)\n")
+        output.write("fit <- trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))\n")
+        output.write("plot(fit$mean, fit$var, pch=16)\n")
+        output.write("curve(fit$trend(x), col='dodgerblue', add=TRUE)\n")
+        output.write("curve(new.trend(x), col='red', add=TRUE)\n")
+
+    def plot_qc(self,output, log=False):
+        if not log:
+            output.write("plotQC(sce, type = 'highest-expression', exprs_values = 'counts')\n")
+        else:
+            output.write("plotQC(sce, type = 'highest-expression', exprs_values = 'logcounts')\n")
 
     def generate_script(self):
+        try:
+            shutil.rmtree("./rdata/h5")
+        except Exception:
+            pass
         script = os.path.join(self.output,"scater_workflow.R")
         output = open(script,"w")
 
@@ -194,19 +264,47 @@ class ScaterCode(object):
         output.write("args = commandArgs(trailingOnly=TRUE)\n\n")
         self.read(output,"args[1]")
         self.annotate(output)
-        self.normalize(output)
         self.qc_metrics(output)
-        output.write("sce_2 <- runPCA(sce)\n")
-        output.write("saveRDS(sce_2,'./rdata/raw_pca_2.rdata')\n")
-        output.write("sce_10 <- runPCA(sce,ncomponents=10)\n")
-        output.write("saveRDS(sce_10,'./rdata/raw_pca_10.rdata')\n")
-        output.write("sce_50 <- runPCA(sce,ncomponents=50)\n")
-        output.write("saveRDS(sce_50,'./rdata/raw_pca_50.rdata')\n")
 
-        output.write("png('umi_distribution.png')\n")
+        self.filter_low_count_genes(output,n_genes=config.low_counts_genes_threshold)
+        self.add_dim_names(output)
+        self.normalize(output)
+
+        output.write("png('./figures/highestExprs.png')\n")
+        self.highest_exprs(output,make_unique=True)
+        output.write("dev.off()\n")
+
+        self.sce_to_seurat(output)
+        self.mito_percentage(output)
+
+        output.write("png('./figures/gene_mito_umi.png')\n")
+        self.gene_plot(output)
+        output.write("dev.off()\n")
+
+        output.write("png('./figures/violin.png')\n")
+        self.violin_gene_mito_umi(output)
+        output.write("dev.off()\n")
+
+        self.filter_cells(output)
+
+        self.normalize_seurat(output)
+
+        output.write("png('./figures/highly_variable_genes.png')\n")
+        self.find_highly_variable(output)
+        output.write("dev.off()\n")
+
+        self.regress_out(output)
+
+        self.seurat_to_sce(output)
+        self.select_highly_variable(output)
+
+        self.filter_high_mito(output,stds=config.stds)
+        self.normalize(output)
+
+        output.write("png('./figures/umi_distribution.png')\n")
         self.umi(output)
         output.write("dev.off()\n")
-        output.write("png('features_distribution.png')\n")
+        output.write("png('./figures/features_distribution.png')\n")
         output.write("hist(sce$log10_total_features_by_counts, breaks=20, col='grey80',xlab='Log-total number of expressed features')\n")
         output.write("dev.off()\n")
         output.write("png('./figures/mito_distribution.png')\n")
@@ -215,23 +313,11 @@ class ScaterCode(object):
         output.write("png('./figures/ribo_distribution.png')\n")
         self.ribo(output)
         output.write("dev.off()\n")
-        self.normalize(output)
-        self.calc_size_factors(output)
 
-        if False:
+        output.write("png('./figures/mean_variance_trend.png')\n")
+        self.mean_variance_trend(output)
+        output.write("dev.off()\n")
 
-            output.write("fit <- trendVar(sce, use.spikes=FALSE)\n")
-            output.write("decomp <- decomposeVar(sce, fit)\n")
-            output.write("top.hvgs <- order(decomp$bio, decreasing=TRUE)\n")
-
-            output.write("png('./figures/mean_var.png.png')\n")
-            output.write("plot(decomp$mean, decomp$total, xlab='Mean log-expression', ylab='Variance')\n")
-            output.write("dev.off()\n")
-
-            output.write("null.dist <- correlateNull(ncol(sce), iter=1e5)\n")
-            output.write("cor.pairs <- correlatePairs(sce, subset.row=top.hvgs[1:200], null.dist=null.dist)\n")
-            output.write("head(cor.pairs)\n")
-            output.write("write.csv(cor.pairs, file = './tables/correlated.csv', row.names=FALSE)\n")
 
         output.write("print('running pca...')\n")
         output.write("sce <- runPCA(sce)\n")
@@ -239,9 +325,9 @@ class ScaterCode(object):
         output.write("plotPCA(sce)\n")
         output.write("dev.off()\n")
 
-        output.write("print('running pca...')\n")
+        output.write("print('running umap...')\n")
         output.write("sce <- runUMAP(sce)\n")
-        output.write("png('umap.png')\n")
+        output.write("png('./figures/umap.png')\n")
         output.write("plotUMAP(sce)\n")
         output.write("dev.off()\n")
 
@@ -251,18 +337,8 @@ class ScaterCode(object):
         output.write("plotTSNE(sce)\n")
         output.write("dev.off()\n")
 
-        output.write("saveHDF5SummarizedExperiment(sce, dir = './rdata/h5/')\n")
-
-        output.write("sce_2 <- runPCA(sce)\n")
-        output.write("saveRDS(sce_2,'./rdata/pca_2.rdata')\n")
-        output.write("sce_10 <- runPCA(sce,ncomponents=10)\n")
-        output.write("saveRDS(sce_10,'./rdata/pca_10.rdata')\n")
-        output.write("sce_50 <- runPCA(sce,ncomponents=50)\n")
-        output.write("saveRDS(sce_50,'./rdata/pca_50.rdata')\n")
-
-        output.write("png('./figures/highestExprs.png')\n")
-        self.highest_exprs(output)
-        output.write("dev.off()\n")
+        output.write("sce <- runPCA(sce,ncomponents=200)\n")
+        output.write("rowData(sce)$Symbol <- rowData(sce)$gene\n")
 
         output.write("saveRDS(sce, file=args[2])\n")
 

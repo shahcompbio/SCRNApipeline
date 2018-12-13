@@ -31,6 +31,7 @@ class CellAssign(object):
         sce_experiment = SingleCellExperiment.fromRData(sces[0])
         genes = set(map(lambda x: x.upper(), list(sce_experiment.rowData[symbol])))
         for sce in sces[1:]:
+            print(sce)
             sce_experiment = SingleCellExperiment.fromRData(sce)
             _genes = set(map(lambda x: x.upper(), list(sce_experiment.rowData["Symbol"])))
             genes = genes.intersection(_genes)
@@ -47,7 +48,6 @@ class CellAssign(object):
             return gene in common_genes
         assert len(genes) == matrix.shape[0]
         rows = matrix[numpy.array([subset(gene,row) for gene,row in zip(genes,matrix)])]
-        print(rows)
         genes = set(genes).intersection(set(common_genes))
         matrix = numpy.transpose(rows.toarray())
         if filter_cells:
@@ -74,8 +74,6 @@ class CellAssign(object):
                 matrix_f.append(row)
                 _barcodes.append(barcode)
         barcodes = _barcodes
-        print("Dims",matrix_o.shape, len(barcodes))
-        # assert matrix_o.shape[0] == len(barcodes), "not the same"
         matrix_t = numpy.transpose(matrix_f)
         return matrix_t, barcodes
 
@@ -123,10 +121,11 @@ class CellAssign(object):
         if run_process:
             fit = CellAssignInterface.cellassign_em(exprs_obj = matrix, rho = rho_binary_matrix, s = s)
             robjects.r.assign("cell_assign_fit", fit)
-            robjects.r("saveRDS(cell_assign_fit, file='cell_assign_fit.rdata')".format(prefix))
+            robjects.r("saveRDS(cell_assign_fit, file='rdata/cell_assign_fit.rdata')".format(prefix))
         else:
+            print("Calling CMD Cell Assign.")
             CellAssign.run_command_line(matrix, rho_binary_matrix, s)
-            fit = r.readRDS("cell_assign_fit.rdata")
+            fit = r.readRDS("rdata/cell_assign_fit.rdata")
         pyfit = dict(zip(fit.names, list(fit)))
         pyfit["Barcode"] = barcodes
         conversion = dict(zip(sorted(list(set(pyfit["cell_type"]))),rho.celltypes()))
@@ -141,10 +140,10 @@ class CellAssign(object):
         script = open("run_cellassign.R","w")
         script.write("""
         library(cellassign)
-        gene_expression_data <- readRDS("input_matrix.rdata")
-        rho <- readRDS("rho.rdata")
-        s <- readRDS("factors.rdata")
+        gene_expression_data <- readRDS("./rdata/input_matrix.rdata")
+        rho <- readRDS("./rdata/rho.rdata")
+        s <- readRDS("./rdata/factors.rdata")
         cas <- cellassign_em(exprs_obj = gene_expression_data, rho = rho, s = s)
-        saveRDS(cas,"cell_assign_fit.rdata")
+        saveRDS(cas,"./rdata/cell_assign_fit.rdata")
         """)
         script.close()

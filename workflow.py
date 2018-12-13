@@ -122,9 +122,8 @@ class SecondaryAnalysis(object):
         self.workflow = workflow
         self.prefix = prefix
         self.output = output
-        self.sce_filtered = os.path.join(self.output,"rdata/sce_filtered.rdata")
-        self.tsne_filtered = os.path.join(self.output, "rdata/raw_tsne.rdata")
-        self.init_sce = os.path.join(self.output,"rdata/init_sce.rdata")
+        self.raw_matrices_sce = os.path.join(self.output,"rdata/raw_matrices_sce.rdata")
+        self.filtered_matrices_sce = os.path.join(self.output,"rdata/filtered_matrices_sce.rdata")
         self.sce = os.path.join(self.output,"rdata/sce.rdata")
         self._pca = os.path.join(self.output,"rdata/pca_{}.rdata")
         self._raw_pca = os.path.join(self.output,"rdata/raw_pca_{}.rdata")
@@ -144,11 +143,20 @@ class SecondaryAnalysis(object):
             func = TenX.read10xCountsFiltered,
             args = (
                 tenx,
-                pypeliner.managed.OutputFile(self.init_sce)
+                pypeliner.managed.OutputFile(self.filtered_matrices_sce)
             )
         )
-        self.rdata = self.sce_filtered
+        self.rdata = self.filtered_matrices_sce
 
+    def save_raw_sce(self,tenx):
+        self.workflow.transform (
+            name = "read10xcounts_raw",
+            func = TenX.read10xCountsRaw,
+            args = (
+                tenx,
+                pypeliner.managed.OutputFile(self.raw_matrices_sce)
+            )
+        )
 
     def run_scater(self):
         self.scater_workflow = ScaterCode(self.output)
@@ -156,22 +164,24 @@ class SecondaryAnalysis(object):
         if not os.path.exists(self.sce):
             self.workflow.commandline (
                 name = "{}_scater_workflow".format(self.prefix),
-                args = ("Rscript", self.rscript, pypeliner.managed.InputFile(self.init_sce), pypeliner.managed.OutputFile(self.sce)),
+                args = ("Rscript", self.rscript, pypeliner.managed.InputFile(self.filtered_matrices_sce), pypeliner.managed.OutputFile(self.sce)),
             )
+        self.rdata = self.sce
 
     def run_cell_assign(self, rho_matrix, tenx, additional=None):
-        self.workflow.transform (
-            name = "{}_cellassign".format(self.prefix),
-            func = CellAssign.run_em,
-            args = (
-                tenx,
-                pypeliner.managed.InputFile(self.sce),
-                pypeliner.managed.OutputFile(self.cell_assign_fit),
-                self.prefix,
-                rho_matrix,
-                additional
+        if not os.path.exists(self.cell_assign_fit):
+            self.workflow.transform (
+                name = "{}_cellassign".format(self.prefix),
+                func = CellAssign.run_em,
+                args = (
+                    tenx,
+                    pypeliner.managed.InputFile(self.sce),
+                    pypeliner.managed.OutputFile(self.cell_assign_fit),
+                    self.prefix,
+                    rho_matrix,
+                    additional
+                )
             )
-        )
 
     def run_clone_align(self, copy_number_data):
         workflow.transform (
@@ -186,142 +196,232 @@ class SecondaryAnalysis(object):
 
 
     def plot_cell_types(self):
-        self.workflow.transform (
-            name = "celltypes",
-            func = plotting.celltypes,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                pypeliner.managed.InputFile(self.cell_assign_fit),
-                self.prefix,
-                self.output
+        if not os.path.exists("figures/cell_types.png"):
+            self.workflow.transform (
+                name = "celltypes",
+                func = plotting.celltypes,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    pypeliner.managed.InputFile(self.cell_assign_fit),
+                    self.prefix,
+                    self.output
+                )
             )
-        )
         return "figures/cell_types.png"
 
-    def plot_tsne_by_cluster(self, tenx):
-        self.workflow.transform (
-            name = "tsne_by_cluster",
-            func = plotting.tsne_by_cluster,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                tenx,
-                self.prefix,
+    def plot_tsne_by_cluster(self, tenx, pcs=2):
+        if not os.path.exists("figures/tsne_by_cluster.png"):
+            self.workflow.transform (
+                name = "tsne_by_cluster",
+                func = plotting.tsne_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    self.prefix,
+                    pcs
+                )
             )
-        )
         return "figures/tsne_by_cluster.png"
 
-    def tsne_by_cluster_markers(self, tenx):
-        self.workflow.transform (
-            name = "tsne_by_cluster_markers",
-            func = plotting.tsne_by_cluster_markers,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                tenx,
-                self.prefix,
+    def tsne_by_cluster_markers(self, tenx, pcs=50):
+        if not os.path.exists("figures/rank_genes_groups_leiden_TSNE_2.png"):
+            self.workflow.transform (
+                name = "tsne_by_cluster_markers",
+                func = plotting.tsne_by_cluster_markers,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    self.prefix,
+                    pcs
+                )
             )
-        )
         return "figures/rank_genes_groups_leiden_TSNE_2.png"
 
-    def pca_by_cluster_markers(self, tenx):
-        self.workflow.transform (
-            name = "pca_by_cluster_markers",
-            func = plotting.pca_by_cluster_markers,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                tenx,
-                self.prefix,
+    def pca_by_cluster_markers(self, tenx, pcs=50):
+        if not os.path.exists("figures/rank_genes_groups_leiden_PCA_{}.png".format(pcs)):
+            self.workflow.transform (
+                name = "pca_by_cluster_markers",
+                func = plotting.pca_by_cluster_markers,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    self.prefix,
+                    pcs
+                )
             )
-        )
-        return "figures/rank_genes_groups_leiden_PCA_2.png"
+        return "figures/rank_genes_groups_leiden_PCA_{}.png".format(pcs)
 
-    def umap_by_cluster_markers(self, tenx):
+    def plot_cluster_markers(self, tenx, rep="TSNE", pcs=50, embedding_file = None):
+        if embedding_file is not None:
+            if "5_2" in embedding_file:
+                suffix = "5_2"
+            if "5_10" in embedding_file:
+                suffix = "5_10"
+            if "5_50" in embedding_file:
+                suffix= "5_50"
+            name = "cluster_markers_{}_{}".format(rep,suffix)
+        else:
+            name = "cluster_markers_{}".format(rep)
         self.workflow.transform (
-            name = "umap_by_cluster_markers",
-            func = plotting.umap_by_cluster_markers,
+            name = name,
+            func = plotting.cluster_markers,
             args = (
                 pypeliner.managed.InputFile(self.sce),
                 tenx,
-                self.prefix,
+                rep,
+                pcs,
+                embedding_file,
+                name.replace("cluster_markers_","")
             )
         )
+        return "figures/expression"
+
+
+    def umap_by_cluster_markers(self, tenx, pcs=50):
+        if not os.path.exists("figures/rank_genes_groups_leiden_UMAP_2.png"):
+            self.workflow.transform (
+                name = "umap_by_cluster_markers",
+                func = plotting.umap_by_cluster_markers,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    self.prefix,
+                    pcs
+                )
+            )
         return "figures/rank_genes_groups_leiden_UMAP_2.png"
 
     def scvis_by_cluster_markers(self, tenx, embedding_file, pcs=2):
-        self.workflow.transform (
-            name = "scvis_by_cluster_markers_{}".format(pcs),
-            func = plotting.scvis_by_cluster_markers,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                tenx,
-                self.prefix,
-                pcs,
-                embedding_file
+        if not os.path.exists("figures/rank_genes_groups_leiden_SCVIS_{}.png".format(pcs)):
+            self.workflow.transform (
+                name = "scvis_by_cluster_markers_{}".format(pcs),
+                func = plotting.scvis_by_cluster_markers,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    self.prefix,
+                    pcs,
+                    embedding_file
+                )
             )
-        )
         return "figures/rank_genes_groups_leiden_SCVIS_{}.png".format(pcs)
 
-    def plot_pca_by_cluster(self, tenx):
-        self.workflow.transform (
-            name = "pca_by_cluster",
-            func = plotting.pca_by_cluster,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                tenx,
-                self.prefix,
+    def plot_pca_by_cluster(self, tenx, pcs=2):
+        if not os.path.exists("figures/pca_by_cluster.png"):
+            self.workflow.transform (
+                name = "pca_by_cluster",
+                func = plotting.pca_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    self.prefix,
+                    pcs
+                )
             )
-        )
         return "figures/pca_by_cluster.png"
 
     def plot_scvis_by_cluster(self, tenx, embedding_file, pcs=2):
-        prefix = self.prefix + "_{}".format(pcs)
-        self.workflow.transform (
-            name = "scvis_by_cluster_{}".format(pcs),
-            func = plotting.scvis_by_cluster,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                tenx,
-                prefix,
-                embedding_file,
-                pcs
+        if embedding_file is not None:
+            if "5_2" in embedding_file:
+                suffix = "5_2"
+            if "5_10" in embedding_file:
+                suffix = "5_10"
+            if "5_50" in embedding_file:
+                suffix= "5_50"
+            prefix = self.prefix + "_{}".format(suffix)
+        else:
+            prefix = self.prefix
+        if not os.path.exists("figures/svis_by_cluster_{}.png".format(prefix)):
+            self.workflow.transform (
+                name = "scvis_by_cluster_{}".format(pcs),
+                func = plotting.scvis_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    prefix,
+                    pcs,
+                    embedding_file,
+                )
             )
-        )
         return "figures/svis_by_cluster_{}.png".format(prefix)
 
     def plot_tsne_by_cell_type(self):
-        self.workflow.transform (
-            name = "tsne_by_cell_type",
-            func = plotting.tsne_by_cell_type,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                pypeliner.managed.InputFile(self.cell_assign_fit),
-                self.prefix
+        if not os.path.exists("figures/tsne_by_cell_type.png"):
+            self.workflow.transform (
+                name = "tsne_by_cell_type",
+                func = plotting.tsne_by_cell_type,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    pypeliner.managed.InputFile(self.cell_assign_fit),
+                    self.prefix,
+                )
             )
-        )
-        return "tsne_by_cell_type.png"
+        return "figures/tsne_by_cell_type.png"
+
+    def plot_pca_by_cell_type(self):
+        if not os.path.exists("figures/pca_by_cell_type.png"):
+            self.workflow.transform (
+                name = "pca_by_cell_type",
+                func = plotting.pca_by_cell_type,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    pypeliner.managed.InputFile(self.cell_assign_fit),
+                    self.prefix,
+                )
+            )
+        return "figures/pca_by_cell_type.png"
+
+
+    def plot_scvis_by_cell_type(self, embedding_file, pcs=2):
+        if embedding_file is not None:
+            if "5_2" in embedding_file:
+                suffix = "5_2"
+            if "5_10" in embedding_file:
+                suffix = "5_10"
+            if "5_50" in embedding_file:
+                suffix= "5_50"
+            prefix = self.prefix + "_{}".format(suffix)
+        else:
+            prefix = self.prefix
+        if not os.path.exists("figures/scvis_by_cell_type_{}.png".format(prefix)):
+            self.workflow.transform (
+                name = "scvis_by_cell_type_{}".format(pcs),
+                func = plotting.scvis_by_cell_type,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    pypeliner.managed.InputFile(self.cell_assign_fit),
+                    prefix,
+                    embedding_file
+                )
+            )
+        return "figures/scvis_by_cell_type_{}.png".format(prefix)
 
     def plot_cell_type_by_cluster(self, tenx):
-        self.workflow.transform (
-            name = "cell_type_by_cluster",
-            func = plotting.cell_type_by_cluster,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                pypeliner.managed.InputFile(self.cell_assign_fit),
-                tenx,
-                self.prefix
+        if not os.path.exists("figures/cell_type_by_cluster.png"):
+            self.workflow.transform (
+                name = "cell_type_by_cluster",
+                func = plotting.cell_type_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    pypeliner.managed.InputFile(self.cell_assign_fit),
+                    tenx,
+                    self.prefix
+                )
             )
-        )
         return "figures/cell_type_by_cluster.png"
 
-    def plot_umap_by_cluster(self,tenx):
-        self.workflow.transform (
-            name = "umap_by_cluster",
-            func = plotting.pca_by_cluster,
-            args = (
-                pypeliner.managed.InputFile(self.sce),
-                tenx,
-                self.prefix,
+    def plot_umap_by_cluster(self,tenx, pcs=50):
+        if not os.path.exists("figures/umap_by_cluster.png"):
+            self.workflow.transform (
+                name = "umap_by_cluster",
+                func = plotting.umap_by_cluster,
+                args = (
+                    pypeliner.managed.InputFile(self.sce),
+                    tenx,
+                    self.prefix,
+                    pcs
+                )
             )
-        )
         return "figures/umap_by_cluster.png"
 
 
@@ -339,7 +439,7 @@ class SecondaryAnalysis(object):
                     self.output,
                     perplexity,
                     components,
-                    pypeliner.managed.InputFile(self._pca.format(components))
+                    pypeliner.managed.InputFile(self.sce)
                 )
             )
 

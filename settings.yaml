@@ -1,4 +1,4 @@
-prefix: Post_Treatment
+prefix: Pre_Treatment
 reference: "/home/nceglia/codebase/refdata/GRCh38"
 rho_matrix: "/home/nceglia/codebase/refdata/rho.json"
 copy_number_data: None
@@ -8,8 +8,10 @@ run_scvis: False
 run_cellassign: True
 run_clonealign: False
 plot_scvis: False
-clustering: False
+clustering: True
 report: False
-qc_type: tenx_filtered
 perplexity: 5
-resolution: 0.045
+resolution: 0.2
+stds: 6
+low_counts_genes_threshold: 4
+n_top_genes: 1000
