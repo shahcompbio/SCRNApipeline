@@ -73,7 +73,6 @@ class TenxAnalysis(object):
         return web_summary
 
     def get_genes(self, sce):
-        barcodes = sce.colData["Barcode"]
         _transcripts = sce.rowData["Symbol"]
         adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
         transcripts = []
@@ -88,10 +87,28 @@ class TenxAnalysis(object):
             transcripts.append(symbol)
         return transcripts
 
-    def create_scanpy_adata(self, sce, fast_load=True, assay="counts"):
+    def gene_map(self, sce):
+        _transcripts = sce.rowData["Symbol"]
+        adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        transcripts = {}
+        for symbol in _transcripts:
+            original = symbol
+            if symbol not in adata.var.index:
+                symbol = symbol.replace(".","-")
+                if symbol not in adata.var.index:
+                    symbol = symbol.split("-")
+                    symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
+                    if symbol not in adata.var.index:
+                        symbol = symbol.split(".")[0]
+            transcripts[original] = symbol
+        return transcripts
+
+
+    def create_scanpy_adata(self, sce, fast_load=True, assay="counts", high_var = False):
         barcodes = sce.colData["Barcode"]
         _transcripts = sce.rowData["Symbol"]
         adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        adata.var_names_make_unique()
         transcripts = []
         for symbol in _transcripts:
             if symbol not in adata.var.index:
@@ -106,9 +123,12 @@ class TenxAnalysis(object):
         adata = adata[:,transcripts]
         assert set(adata.var.index) == set(transcripts), "Issues with symbol conversion."
         adata = adata[barcodes,:]
-        t1 = set(adata.var.index)
-        t2 = set(transcripts)
         adata.var_names_make_unique()
+        var_transcripts = sc.pp.highly_variable_genes(adata, flavor="cell_ranger", inplace=False)
+        assert len(var_transcripts) == len(adata.var.index)
+        if high_var:
+            var_transcripts = [x[0] for x in zip(adata.var.index, var_transcripts) if x[1][0] == True]
+            adata = adata[:,var_transcripts]
         if not fast_load:
             sc.tl.pca(adata)
             sc.pp.neighbors(adata)
@@ -127,7 +147,7 @@ class TenxAnalysis(object):
             embedding.append(row)
         return numpy.array(embedding).reshape(2,len(rows))
 
-    def clusters(self, sce, rep=None, pcs=2, embedding_file=None, copy = False):
+    def clusters(self, sce, rep=None, pcs=50, embedding_file=None, copy = False):
         adata = self.create_scanpy_adata(sce, fast_load=True)
         if rep == None or rep=="PCA":
             projection = sce.getReducedDims("PCA",n=pcs)
@@ -155,7 +175,17 @@ class TenxAnalysis(object):
         else:
             return adata
 
-    def markers_by_clusters(self, sce, rep=None, pcs=2, embedding_file=None):
+    def markers(self, sce, n=100, pcs=50):
+        adata = self.clusters(sce, pcs=pcs,copy=True)
+        sc.tl.rank_genes_groups(adata, 'leiden', n_genes=n)
+        markers = []
+        for genes, pvals in zip(adata.uns["rank_genes_groups"]["names"],adata.uns["rank_genes_groups"]["pvals_adj"]):
+            for gene, pval in zip(genes,pvals):
+                if pval < 0.01:
+                    markers.append(gene)
+        return list(set(markers))
+
+    def markers_by_clusters(self, sce, rep=None, pcs=50, embedding_file=None):
         adata = self.clusters(sce, pcs=pcs, embedding_file=embedding_file, copy=True)
         sc.tl.rank_genes_groups(adata, 'leiden')
         sc.pl.rank_genes_groups(adata, n_genes=20, sharey=False, save='_{}_{}.png'.format(rep,pcs))

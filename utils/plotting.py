@@ -77,7 +77,7 @@ def scvis_by_cell_type(rdata, cell_assign_fit, prefix, embedding_file):
     ax.set_title("SCVIS - Cell Type - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/svis_by_cluster_{}.png".format(prefix))
+    plt.savefig("figures/scvis_by_cluster_{}.png".format(prefix))
 
 def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
     sce = SingleCellExperiment.fromRData(rdata)
@@ -367,9 +367,11 @@ def plot_by_markers(rdata, tenx_analysis, genes, prefix, rep, pcs, embedding_fil
         expression = counts[all_genes.index(gene)]
         plt.subplot(3, 4, i+1)
         expression = scale.fit_transform(numpy.array(expression).reshape(-1,1))
-        expression = list(expression.flatten())
-        for i in drop_rows:
-            expression.pop(i)
+        _expression = list(expression.flatten())
+        expression = []
+        for i, row in enumerate(_expression):
+            if i not in drop_rows:
+                expression.append(row)
         print(len(expression))
         print(len(barcodes))
         print(len(x))
@@ -414,7 +416,7 @@ def cell_type_by_cluster(rdata, cell_assign_fit, tenx_analysis, prefix):
     fit = pickle.load(open(cell_assign_fit,"rb"))
     cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
     sce = SingleCellExperiment.fromRData(rdata)
-    cluster_labels = tenx.clusters(sce, rep="TSNE")
+    cluster_labels = tenx.clusters(sce)
     clusters = dict(zip(sce.colData["Barcode"], cluster_labels))
     data_by_cluster = collections.defaultdict(list)
     data_by_celltype = collections.defaultdict(list)

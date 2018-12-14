@@ -62,6 +62,7 @@ from interface.binarybasecall import BinaryBaseCall
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
 from interface.genemarkermatrix import GeneMarkerMatrix, generate_json
+from interface.singlecellexperiment import SingleCellExperiment
 
 from utils.reporting import Results
 from utils.config import Configuration
@@ -131,16 +132,12 @@ def create_workflow():
     ribo = os.path.join(output, "figures/ribo_distribution.png")
     freq = os.path.join(output, "figures/highestExprs.png")
     tech = os.path.join(output, "figures/mean_variance_trend.png")
-    qc_plot = os.path.join(output, "figures/qc_plot.png")
-    qc_plot_log = os.path.join(output, "figures/qc_plot_log.png")
 
     results.add_plot(umi,"UMI Distribution")
     results.add_plot(mito,"Mito Distribution")
     results.add_plot(ribo,"Ribo Distribution")
     results.add_plot(freq,"Highest Frequency")
     results.add_plot(tech,"Mean Variance Trend")
-    results.add_plot(qc_plot,"QC Metrics (counts)")
-    results.add_plot(qc_plot,"QC Metrics (logcounts)")
 
     results.add_cellassign_pkl(secondary_analysis.cell_assign_fit)
     results.add_cellassign_raw(secondary_analysis.cell_assign_rdata)
@@ -152,6 +149,9 @@ def create_workflow():
         tenx = TenxAnalysis(tenx_analysis)
         if hasattr(config, "rho_matrix"):
             rho_matrix = eval(open(config.rho_matrix,"r").read())
+        elif hasattr(config, "organ"):
+            sce = SingleCellExperiment.fromRData(secondary_analysis.sce)
+            rho_matrix = generate_json(tenx, sce, config.organ)
         else:
             raise AssertionError("Not implemented.")
         secondary_analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
@@ -244,8 +244,15 @@ def create_workflow():
     """
     Gene Level
     """
+    ## Table of Data
 
+    ## Differential  Genes by Cluster
 
+    ## Differential Genes by Cell Type
+
+    """
+    Clone Align
+    """
 
     """
     Reporting

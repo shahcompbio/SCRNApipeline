@@ -169,19 +169,18 @@ class SecondaryAnalysis(object):
         self.rdata = self.sce
 
     def run_cell_assign(self, rho_matrix, tenx, additional=None):
-        if not os.path.exists(self.cell_assign_fit):
-            self.workflow.transform (
-                name = "{}_cellassign".format(self.prefix),
-                func = CellAssign.run_em,
-                args = (
-                    tenx,
-                    pypeliner.managed.InputFile(self.sce),
-                    pypeliner.managed.OutputFile(self.cell_assign_fit),
-                    self.prefix,
-                    rho_matrix,
-                    additional
-                )
+        self.workflow.transform (
+            name = "{}_cellassign".format(self.prefix),
+            func = CellAssign.run_em,
+            args = (
+                tenx,
+                pypeliner.managed.InputFile(self.sce),
+                pypeliner.managed.OutputFile(self.cell_assign_fit),
+                self.prefix,
+                rho_matrix,
+                additional
             )
+        )
 
     def run_clone_align(self, copy_number_data):
         workflow.transform (
@@ -331,9 +330,9 @@ class SecondaryAnalysis(object):
             prefix = self.prefix + "_{}".format(suffix)
         else:
             prefix = self.prefix
-        if not os.path.exists("figures/svis_by_cluster_{}.png".format(prefix)):
+        if not os.path.exists("figures/scvis_by_cluster_{}.png".format(prefix)):
             self.workflow.transform (
-                name = "scvis_by_cluster_{}".format(pcs),
+                name = "scvis_by_cluster_{}".format(suffix),
                 func = plotting.scvis_by_cluster,
                 args = (
                     pypeliner.managed.InputFile(self.sce),
@@ -343,7 +342,7 @@ class SecondaryAnalysis(object):
                     embedding_file,
                 )
             )
-        return "figures/svis_by_cluster_{}.png".format(prefix)
+        return "figures/scvis_by_cluster_{}.png".format(prefix)
 
     def plot_tsne_by_cell_type(self):
         if not os.path.exists("figures/tsne_by_cell_type.png"):
@@ -373,19 +372,16 @@ class SecondaryAnalysis(object):
 
 
     def plot_scvis_by_cell_type(self, embedding_file, pcs=2):
-        if embedding_file is not None:
-            if "5_2" in embedding_file:
-                suffix = "5_2"
-            if "5_10" in embedding_file:
-                suffix = "5_10"
-            if "5_50" in embedding_file:
-                suffix= "5_50"
-            prefix = self.prefix + "_{}".format(suffix)
-        else:
-            prefix = self.prefix
+        if "5_2" in embedding_file:
+            suffix = "5_2"
+        if "5_10" in embedding_file:
+            suffix = "5_10"
+        if "5_50" in embedding_file:
+            suffix= "5_50"
+        prefix = self.prefix + "_{}".format(suffix)
         if not os.path.exists("figures/scvis_by_cell_type_{}.png".format(prefix)):
             self.workflow.transform (
-                name = "scvis_by_cell_type_{}".format(pcs),
+                name = "scvis_by_cell_type_{}".format(suffix),
                 func = plotting.scvis_by_cell_type,
                 args = (
                     pypeliner.managed.InputFile(self.sce),

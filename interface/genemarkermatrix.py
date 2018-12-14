@@ -8,24 +8,26 @@ import collections
 import operator
 import pandas
 import numpy
+import os
 
-def generate_json(analysis):
-    rows = open("/home/nceglia/codebase/refdata/marker_genes.tsv","r").read().splitlines()
+def generate_json(analysis, sce, organ):
+    markers = os.path.join(os.path.dirname(os.path.realpath(__file__)),"../utils/marker_genes.tsv")
+    rows = open(markers,"r").read().splitlines()
     header = rows.pop(0).split("\t")
     matrix = collections.defaultdict(list)
     for row in rows:
         row = dict(zip(header,row.split("\t")))
-        if "Hs" in row["species"]:
-            if float(row["ubiquitousness index"]) > 0.07:
+        if "Hs" in row["species"] and row["organ"] == organ:
+            if float(row["ubiquitousness index"]):
                 matrix[row["cell type"]].append(row["official gene symbol"])
                 aliases = row["nicknames"].split("|")
                 for alias in aliases:
                     matrix[row["cell type"]].append(alias)
-    adata = analysis.create_scanpy_adata()
-    adata.var_names_make_unique()
-    sc.pp.recipe_zheng17(adata)
+    markers = analysis.markers(sce)
+    adata = analysis.create_scanpy_adata(sce, high_var = True)
+    final_set = list(set(adata.var.index).intersection(set(markers)))
+    adata = adata[:,final_set]
     rho = collections.defaultdict(list)
-    types = dict()
     for cell_type in matrix.keys():
         count = 0
         for gene in matrix[cell_type]:
@@ -33,15 +35,8 @@ def generate_json(analysis):
                 vals = adata[:, gene].X
                 dropout = list(vals).count(0)
                 if dropout == adata.shape[0]:
-                    print("dropped")
                     continue
-                count += 1
-        if count > 2:
-            types[cell_type] = count
-            rho[cell_type].append(gene)
-    sorted_cells = sorted(types.items(), key=operator.itemgetter(1))
-    for cell in sorted_cells:
-        print(cell[0],cell[1])
+                rho[cell_type].append(gene)
     return rho
 
 class GeneMarkerMatrix(object):

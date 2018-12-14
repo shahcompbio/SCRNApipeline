@@ -38,10 +38,11 @@ class CellAssign(object):
         return list(genes)
 
     @staticmethod
-    def load(rdata, assay, symbol, filter_cells, filter_transcripts, common_genes):
+    def load(tenx, rdata, assay, symbol, filter_cells, filter_transcripts, common_genes):
         sce_experiment = SingleCellExperiment.fromRData(rdata)
         assert symbol in sce_experiment.rowData.keys()
         genes = list(map(lambda x: x.upper(), list(sce_experiment.rowData["Symbol"])))
+        convert = tenx.gene_map(genes)
         barcodes = list(sce_experiment.colData["Barcode"])
         matrix = sce_experiment.assays[assay]
         def subset(gene,row):
@@ -75,7 +76,7 @@ class CellAssign(object):
                 _barcodes.append(barcode)
         barcodes = _barcodes
         matrix_t = numpy.transpose(matrix_f)
-        return matrix_t, barcodes
+        return matrix_t, barcodes, genes
 
     @staticmethod
     def write_input(matrix, rho, factors):
@@ -95,27 +96,36 @@ class CellAssign(object):
     @staticmethod
     def run_em(tenx, rdata, filename, prefix, rho_matrix, additional, assay="counts", symbol="Symbol", filter_cells=True, filter_transcripts=True, run_cmd=True, run_process=False):
         tenx = TenxAnalysis(tenx)
-        print("Running EM")
+        sce = SingleCellExperiment.fromRData(rdata)
+        print("Running EM.")
         if additional is not None:
             all_rdata = [rdata] + additional
         else:
             all_rdata = [rdata]
-        genes = CellAssign.common_genes(all_rdata, symbol)
+        sce = SingleCellExperiment.fromRData(rdata)
+        genes = set(tenx.get_genes(sce))
+        for nrdata in all_rdata[1:]:
+            _genes = tenx.get_genes(SingleCellExperiment.fromRData(rdata))
+            genes = genes.intersection(set(_genes))
+        genes = list(genes)
         rho = GeneMarkerMatrix(rho_matrix)
         genes = set(rho.genes).intersection(set(genes))
-        matrix_t, barcodes = CellAssign.load(rdata, assay, symbol, filter_cells, filter_transcripts, genes)
+        matrix_t, barcodes, origgenes = CellAssign.load(rdata, assay, symbol, filter_cells, filter_transcripts, genes)
+        print(origgenes)
         if additional is not None:
             for sce in additional:
-                _matrix_t, _barcodes = CellAssign.load(sce, assay, symbol, filter_cells, filter_transcripts, genes)
+                _matrix_t, _barcodes, xgenes = CellAssign.load(sce, assay, symbol, filter_cells, filter_transcripts, genes)
+                print(set(origgenes).difference(set(xgenes)))
+                print(_matrix_t.shape, matrix_t.shape)
                 matrix_t = numpy.hstack((matrix_t,_matrix_t))
                 barcodes += _barcodes
         matrix_t = numpy.array(matrix_t)
-        print("Calculating Size Factors")
+        print("Calculating Size Factors.")
         s = EdgeRInterface.calcNormFactors(matrix_t, method="TMM")
         s = pandas2ri.ri2py(s)
-        print("Finished size factors")
+        print("Finished size factors.")
         rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=False))
-        print("Building Rho")
+        print("Building Rho.")
         matrix = numpy.transpose(matrix_t)
         assert matrix.shape[1] == rho_binary_matrix.shape[0], "Dimensions between rho and expression matrix do not match!"
         if run_process:
@@ -124,7 +134,8 @@ class CellAssign(object):
             robjects.r("saveRDS(cell_assign_fit, file='rdata/cell_assign_fit.rdata')".format(prefix))
         else:
             print("Calling CMD Cell Assign.")
-            CellAssign.run_command_line(matrix, rho_binary_matrix, s)
+            if not os.path.exists("rdata/cell_assign_fit.rdata"):
+                CellAssign.run_command_line(matrix, rho_binary_matrix, s)
             fit = r.readRDS("rdata/cell_assign_fit.rdata")
         pyfit = dict(zip(fit.names, list(fit)))
         pyfit["Barcode"] = barcodes

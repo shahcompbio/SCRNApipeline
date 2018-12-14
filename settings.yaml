@@ -1,13 +1,14 @@
 prefix: Pre_Treatment
 reference: "/home/nceglia/codebase/refdata/GRCh38"
-rho_matrix: "/home/nceglia/codebase/refdata/rho.json"
+rho_matrix: "/home/nceglia/codebase/refdata/rho_pan.json"
+organ: "Reproductive"
 copy_number_data: None
 scviz_embedding: None
 chemistry: "SC5P-R2"
 run_scvis: False
 run_cellassign: True
 run_clonealign: False
-plot_scvis: False
+plot_scvis: True
 clustering: True
 report: False
 perplexity: 5
