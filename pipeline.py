@@ -132,18 +132,21 @@ def create_workflow():
     ribo = os.path.join(output, "figures/ribo_distribution.png")
     freq = os.path.join(output, "figures/highestExprs.png")
     tech = os.path.join(output, "figures/mean_variance_trend.png")
+    high_var = os.path.join(output, "figures/highly_variable_genes.png")
 
     results.add_plot(umi,"UMI Distribution")
     results.add_plot(mito,"Mito Distribution")
     results.add_plot(ribo,"Ribo Distribution")
     results.add_plot(freq,"Highest Frequency")
     results.add_plot(tech,"Mean Variance Trend")
+    results.add_plot(tech,"Highly Variable Genes")
+
 
     results.add_cellassign_pkl(secondary_analysis.cell_assign_fit)
     results.add_cellassign_raw(secondary_analysis.cell_assign_rdata)
 
     """
-    Cell Assign
+    CellAssign
     """
     if config.run_cellassign:
         tenx = TenxAnalysis(tenx_analysis)
@@ -154,18 +157,26 @@ def create_workflow():
             rho_matrix = generate_json(tenx, sce, config.organ)
         else:
             raise AssertionError("Not implemented.")
-        secondary_analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
+        # secondary_analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
 
-        path = secondary_analysis.plot_cell_types()
-        results.add_plot(path, "Cell Type Frequency")
-        path = secondary_analysis.plot_cell_type_by_cluster(tenx_analysis)
-        results.add_plot(path, "Cell Type by Cluster")
+    path = secondary_analysis.plot_cell_types()
+    results.add_plot(path, "Cell Type Frequency")
+    path = secondary_analysis.plot_cell_type_by_cluster(tenx_analysis)
+    results.add_plot(path, "Cell Type by Cluster")
 
-        path = secondary_analysis.plot_tsne_by_cell_type()
-        results.add_plot(path, "TSNE by Cell Type")
+    path = secondary_analysis.plot_tsne_by_cell_type()
+    results.add_plot(path, "TSNE by Cell Type")
 
-        path = secondary_analysis.plot_pca_by_cell_type()
-        results.add_plot(path, "TSNE by Cell Type")
+    path = secondary_analysis.plot_pca_by_cell_type()
+    results.add_plot(path, "PCA by Cell Type")
+
+    path = secondary_analysis.plot_pca_by_cell_type()
+    results.add_plot(path, "UMAP by Cell Type")
+
+    path1, path2 = secondary_analysis.marker_analysis(tenx, rho_matrix)
+    results.add_plot(path1, "Heat Marker Gene Matrix")
+    results.add_plot(path2, "Stacked Vin Marker Gene Matrix")
+
 
     """
     SCVis
@@ -174,6 +185,49 @@ def create_workflow():
         secondary_analysis.run_scviz(config.perplexity, 2)
         secondary_analysis.run_scviz(config.perplexity, 10)
         secondary_analysis.run_scviz(config.perplexity, 50)
+
+
+    """
+    CloneAlign
+    """
+    if config.run_clonealign and config.copy_number_data is not None and config.clone_assignments is not None:
+        secondary_analysis.run_clone_align(tenx, config.copy_number_data, config.clone_assignments)
+
+
+    if config.plot_scvis:
+        template = os.path.join(output,"scvis/5_2/*0.tsv")
+        embedding_file = glob.glob(template)[0]
+        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=2)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Cluster (Dim 2)")
+
+
+        if os.path.exists(secondary_analysis.cell_assign_fit):
+            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=2)
+            results.add_plot(path, "SCVIS (Dim 2) by Cell Type")
+
+        template = os.path.join(output,"scvis/5_10/*0.tsv")
+        embedding_file = glob.glob(template)[0]
+        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=10)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Cluster (Dim 10)")
+
+
+        if os.path.exists(secondary_analysis.cell_assign_fit):
+            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=10)
+            results.add_plot(path, "SCVIS (Dim 10) by Cell Type")
+
+        template = os.path.join(output,"scvis/5_50/*0.tsv")
+        embedding_file = glob.glob(template)[0]
+        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50)
+        path = os.path.join(output, path)
+        results.add_plot(path, "SCVis by Cluster (Dim 50)")
+
+
+        if os.path.exists(secondary_analysis.cell_assign_fit):
+            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=50)
+            results.add_plot(path, "SCVIS (Dim 50) by Cell Type")
+
 
     """
     Cluster Analysis
@@ -190,65 +244,63 @@ def create_workflow():
 
         secondary_analysis.plot_cluster_markers(tenx_analysis, rep="PCA", pcs=50)
 
+        pca_cluster_markers = glob.glob("figures/expression/*pca*png")
+        for png in pca_cluster_markers:
+            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
+            results.add_plot(png,title)
+
         secondary_analysis.plot_cluster_markers(tenx_analysis, rep="TSNE", pcs=50)
+
+        pca_cluster_markers = glob.glob("figures/expression/*tsne*png")
+        for png in pca_cluster_markers:
+            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
+            results.add_plot(png,title)
 
         secondary_analysis.plot_cluster_markers(tenx_analysis, rep="UMAP", pcs=50)
 
+        pca_cluster_markers = glob.glob("figures/expression/*umap*png")
+        for png in pca_cluster_markers:
+            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
+            results.add_plot(png,title)
+
         template = os.path.join(output,"scvis/5_2/*0.tsv")
         embedding_file = glob.glob(template)[0]
         secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
+
+        pca_cluster_markers = glob.glob("figures/expression/*scvis_5_2*png")
+        for png in pca_cluster_markers:
+            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
+            results.add_plot(png,title)
 
         template = os.path.join(output,"scvis/5_10/*0.tsv")
         embedding_file = glob.glob(template)[0]
         secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
 
+        pca_cluster_markers = glob.glob("figures/expression/*scvis_5_10*png")
+        for png in pca_cluster_markers:
+            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
+            results.add_plot(png,title)
+
         template = os.path.join(output,"scvis/5_50/*0.tsv")
         embedding_file = glob.glob(template)[0]
         secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
 
+        pca_cluster_markers = glob.glob("figures/expression/*scvis_5_50*png")
+        for png in pca_cluster_markers:
+            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
+            results.add_plot(png,title)
 
-    if config.plot_scvis:
-        template = os.path.join(output,"scvis/5_2/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50)
-        path = os.path.join(output, path)
-        results.add_plot(path, "SCVis by Cluster (Dim 2)")
-
-
-        if os.path.exists(secondary_analysis.cell_assign_fit):
-            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=50)
-            results.add_plot(path, "SCVIS (Dim 2) by Cell Type")
-
-        template = os.path.join(output,"scvis/5_10/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50)
-        path = os.path.join(output, path)
-        results.add_plot(path, "SCVis by Cluster (Dim 10)")
-
-
-        if os.path.exists(secondary_analysis.cell_assign_fit):
-            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=50)
-            results.add_plot(path, "SCVIS (Dim 10) by Cell Type")
-
-        template = os.path.join(output,"scvis/5_50/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50)
-        path = os.path.join(output, path)
-        results.add_plot(path, "SCVis by Cluster (Dim 50)")
-
-
-        if os.path.exists(secondary_analysis.cell_assign_fit):
-            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=50)
-            results.add_plot(path, "SCVIS (Dim 50) by Cell Type")
 
     """
     Gene Level
     """
     ## Table of Data
+    # if config.tables:
+    #     secondary_analysis.gene_table(tenx_analysis)
+    #     secondary_analysis.enrichment_by_cluster(tenx_analysis)
+    #     secondary_analysis.enrichment_by_celltype(tenx_analysis)
+    #     secondary_analysis.differential_analysis(tenx_analysis)
 
-    ## Differential  Genes by Cluster
-
-    ## Differential Genes by Cell Type
 
     """
     Clone Align

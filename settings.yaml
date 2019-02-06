@@ -1,7 +1,7 @@
 prefix: Pre_Treatment
 reference: "/home/nceglia/codebase/refdata/GRCh38"
-rho_matrix: "/home/nceglia/codebase/refdata/rho_pan.json"
-organ: "Reproductive"
+rho_matrix: "/home/nceglia/codebase/refdata/rho.json"
+#organ: "Immune system"
 copy_number_data: None
 scviz_embedding: None
 chemistry: "SC5P-R2"
@@ -16,3 +16,4 @@ resolution: 0.2
 stds: 6
 low_counts_genes_threshold: 4
 n_top_genes: 1000
+tables: False

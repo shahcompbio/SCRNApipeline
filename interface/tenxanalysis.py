@@ -74,7 +74,10 @@ class TenxAnalysis(object):
 
     def get_genes(self, sce):
         _transcripts = sce.rowData["Symbol"]
-        adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        try:
+            adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        except Exception:
+            adata = sc.read_10x_mtx(self.filtered_matrices())
         transcripts = []
         for symbol in _transcripts:
             if symbol not in adata.var.index:
@@ -87,9 +90,12 @@ class TenxAnalysis(object):
             transcripts.append(symbol)
         return transcripts
 
-    def gene_map(self, sce):
+    def gene_map(self, sce, original=False):
         _transcripts = sce.rowData["Symbol"]
-        adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        try:
+            adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        except Exception:
+            adata = sc.read_10x_mtx(self.filtered_matrices())
         transcripts = {}
         for symbol in _transcripts:
             original = symbol
@@ -100,14 +106,20 @@ class TenxAnalysis(object):
                     symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
                     if symbol not in adata.var.index:
                         symbol = symbol.split(".")[0]
-            transcripts[original] = symbol
+            if original:
+                transcripts[original] = symbol
+            else:
+                transcripts[symbol] = original
         return transcripts
 
 
     def create_scanpy_adata(self, sce, fast_load=True, assay="counts", high_var = False):
         barcodes = sce.colData["Barcode"]
         _transcripts = sce.rowData["Symbol"]
-        adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        try:
+            adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        except Exception:
+            adata = sc.read_10x_mtx(self.filtered_matrices())
         adata.var_names_make_unique()
         transcripts = []
         for symbol in _transcripts:

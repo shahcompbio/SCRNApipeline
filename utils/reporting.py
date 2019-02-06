@@ -20,6 +20,8 @@ class Results(object):
         try:
             os.makedirs(self.report_dir)
         except Exception as e:
+            print(e)
+            exit(0)
             pass
         try:
             os.makedirs(self.sce_dir)
@@ -68,7 +70,8 @@ class Results(object):
 
 
     def add_plot(self, path, header, desc=""):
-        if not os.path.exists(path): return
+        # if not os.path.exists(path):
+        #     print("not found")
         plot = dict()
         dest =  os.path.join(self.report_dir, os.path.split(path)[1])
         self.paths.append((path, dest))
@@ -76,10 +79,16 @@ class Results(object):
         plot["path"] = os.path.split(dest)[1]
         plot["header"] = header
         plot["desc"] = desc
+        print(plot["path"])
+        import sys
+        sys.stdout.flush()
         self.plots.append(plot)
 
     def finalize(self):
         for source, dest in self.paths:
+            print(source, dest)
+            import sys
+            sys.stdout.flush()
             shutil.copyfile(source, dest)
 
 

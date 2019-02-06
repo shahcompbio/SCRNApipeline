@@ -161,11 +161,10 @@ class SecondaryAnalysis(object):
     def run_scater(self):
         self.scater_workflow = ScaterCode(self.output)
         self.rscript = self.scater_workflow.generate_script()
-        if not os.path.exists(self.sce):
-            self.workflow.commandline (
-                name = "{}_scater_workflow".format(self.prefix),
-                args = ("Rscript", self.rscript, pypeliner.managed.InputFile(self.filtered_matrices_sce), pypeliner.managed.OutputFile(self.sce)),
-            )
+        self.workflow.commandline (
+            name = "{}_scater_workflow".format(self.prefix),
+            args = ("Rscript", self.rscript, pypeliner.managed.InputFile(self.filtered_matrices_sce), pypeliner.managed.OutputFile(self.sce)),
+        )
         self.rdata = self.sce
 
     def run_cell_assign(self, rho_matrix, tenx, additional=None):
@@ -182,14 +181,15 @@ class SecondaryAnalysis(object):
             )
         )
 
-    def run_clone_align(self, copy_number_data):
-        workflow.transform (
+    def run_clone_align(self, tenx, copy_number_data, clone_assignments):
+        self.workflow.transform (
             name = "{}_clonealign".format(self.prefix),
             func = CloneAlign.run,
             args = (
-                pypeliner.managed.InputFile(self.sce_final),
+                tenx,
+                pypeliner.managed.InputFile(self.sce),
                 copy_number_data,
-                pypeliner.managed.OutputFile(clone_align_fit)
+                clone_assignments
             )
         )
 
@@ -345,7 +345,7 @@ class SecondaryAnalysis(object):
         return "figures/scvis_by_cluster_{}.png".format(prefix)
 
     def plot_tsne_by_cell_type(self):
-        if not os.path.exists("figures/tsne_by_cell_type.png"):
+        if not os.path.exists("figures/tsne_by_celltype.png"):
             self.workflow.transform (
                 name = "tsne_by_cell_type",
                 func = plotting.tsne_by_cell_type,
@@ -355,10 +355,10 @@ class SecondaryAnalysis(object):
                     self.prefix,
                 )
             )
-        return "figures/tsne_by_cell_type.png"
+        return "figures/tsne_by_celltype.png"
 
     def plot_pca_by_cell_type(self):
-        if not os.path.exists("figures/pca_by_cell_type.png"):
+        if not os.path.exists("figures/pca_by_celltype.png"):
             self.workflow.transform (
                 name = "pca_by_cell_type",
                 func = plotting.pca_by_cell_type,
@@ -368,7 +368,7 @@ class SecondaryAnalysis(object):
                     self.prefix,
                 )
             )
-        return "figures/pca_by_cell_type.png"
+        return "figures/pca_by_celltype.png"
 
 
     def plot_scvis_by_cell_type(self, embedding_file, pcs=2):
@@ -449,6 +449,33 @@ class SecondaryAnalysis(object):
                 self.output
             )
         )
+
+    def gene_table(self, tenx):
+        pass
+
+    def enrichment_by_cluster(self, tenx):
+        pass
+
+    def enrichment_by_celltype(self, tenx):
+        pass
+
+    def differential_analysis(self, tenx):
+        pass
+
+    def marker_analysis(self, tenx, rho_matrix):
+        figure = "figures/marker_analysis.png"
+        self.workflow.transform (
+            name = "marker_analysis_{}".format(self.prefix),
+            func = plotting.marker_analysis,
+            args = (
+                pypeliner.managed.InputFile(self.sce),
+                tenx,
+                rho_matrix,
+                pypeliner.managed.InputFile(self.cell_assign_fit),
+                figure,
+            )
+        )
+        return ("figures/dotplotmatrix.png", "figures/violin.png")
 
     def get_workflow(self):
         return self.workflow

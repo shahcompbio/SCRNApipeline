@@ -45,13 +45,13 @@ def exportMD(results):
     output.write(" - [CellRanger Summary]({})\n".format(results.summary))
     output.write(" - SCE Object (TenX Filtered): {}\n\n".format(results.filtered_sce))
     output.write(" - QC Workflow {}\n\n".format(config.qc_type))
-    # output.write(" - R QC Workflow: {}\n\n".format(results.script))
+    output.write(" - R QC Workflow: {}\n\n".format(results.script))
 
     output.write("***\n")
     output.write("## Quality Control\n")
     output.write("### FastQC\n")
-    for sample, summary in results.qc_reports():
-        output.write(" - [{}]({})\n".format(sample, summary))
+    for summary in results.qc_reports():
+        output.write(" - [{}]({})\n".format(summary, summary))
 
     for plot in results.plots:
         output.write("\n### {}\n".format(plot["header"]))

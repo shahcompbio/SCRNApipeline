@@ -9,6 +9,7 @@ import pickle
 from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.tenxanalysis import TenxAnalysis
+import scanpy.api as sc
 import numpy
 import collections
 import os
@@ -45,12 +46,13 @@ def celltypes(rdata, cell_assign_fit, prefix, output):
     f, ax = plt.subplots(figsize=(12,6))
     ax.set_title("Cell Type Assignments - {}".format(prefix))
     sns.countplot(cell_types, palette="tab10", order=list(sorted(order)))
-    ax.set_xticklabels(labels=list(sorted(order)),rotation=30)
+    ax.set_xticklabels(labels=list(sorted(order)),rotation=90)
     plt.tight_layout()
     figure = os.path.join(output, "figures/cell_types.png")
     plt.savefig(figure)
 
 def scvis_by_cell_type(rdata, cell_assign_fit, prefix, embedding_file):
+    print("yas")
     fit = pickle.load(open(cell_assign_fit,"rb"))
     sce = SingleCellExperiment.fromRData(rdata)
     barcodes = sce.colData["Barcode"]
@@ -77,7 +79,8 @@ def scvis_by_cell_type(rdata, cell_assign_fit, prefix, embedding_file):
     ax.set_title("SCVIS - Cell Type - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/scvis_by_cluster_{}.png".format(prefix))
+    print("yes")
+    plt.savefig("figures/scvis_by_cell_type_{}.png".format(prefix))
 
 def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
     sce = SingleCellExperiment.fromRData(rdata)
@@ -108,7 +111,7 @@ def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
     ax.set_title("TSNE - Cell Type - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/tsne_by_celltype.png")
+    plt.savefig("figures/tsne_by_cell_type.png")
 
 def pca_by_cell_type(rdata, cell_assign_fit, prefix):
     sce = SingleCellExperiment.fromRData(rdata)
@@ -451,6 +454,44 @@ def cell_type_by_cluster(rdata, cell_assign_fit, tenx_analysis, prefix):
     ax.set_title("Cell Type by Cluster - {}".format(prefix))
     plt.tight_layout()
     plt.savefig("figures/cell_type_by_cluster.png")
+
+
+def marker_analysis(sce, tenx, rho, cell_assign_fit, figure):
+    sce = SingleCellExperiment.fromRData(sce)
+    fit = pickle.load(open(cell_assign_fit,"rb"))
+    gene_markers = []
+    for markers in rho.values():
+        print(markers)
+        gene_markers += markers
+    _marker_genes = list(set(gene_markers))
+    convert = tenx.gene_map(sce)
+    marker_genes = []
+    for gene in _marker_genes:
+        try:
+            marker_genes.append(convert[gene])
+        except KeyError:
+            marker_genes.append(gene)
+            print('No conversion for ',gene)
+    print(marker_genes)
+    adata = tenx.create_scanpy_adata(sce, fast_load=False)
+    print(len(adata.obs.index))
+    print(len(fit["cell_type"]))
+    cell_types = []
+    _cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
+    for barcode in adata.obs.index:
+        try:
+            cell_types.append(_cell_types[barcode])
+        except KeyError as e:
+            cell_types.append("Other")
+    adata.obs["Cell Type"] = cell_types
+    print(len(cell_types))
+    marker_genes = list(set(marker_genes).intersection(set(adata.var.index)))
+    print(len(marker_genes))
+    print(marker_genes)
+    sc.pl.dotplot(adata, marker_genes, groupby='Cell Type', save="matrix.png")
+    sc.pl.stacked_violin(adata, marker_genes, groupby='Cell Type', rotation=90, save="vin_stacked.png")
+    return ["dot_plot.png", "vin_stacked.png"]
+
 
 if __name__ == '__main__':
     import glob

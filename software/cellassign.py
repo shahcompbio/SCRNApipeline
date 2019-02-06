@@ -31,7 +31,6 @@ class CellAssign(object):
         sce_experiment = SingleCellExperiment.fromRData(sces[0])
         genes = set(map(lambda x: x.upper(), list(sce_experiment.rowData[symbol])))
         for sce in sces[1:]:
-            print(sce)
             sce_experiment = SingleCellExperiment.fromRData(sce)
             _genes = set(map(lambda x: x.upper(), list(sce_experiment.rowData["Symbol"])))
             genes = genes.intersection(_genes)
@@ -41,10 +40,10 @@ class CellAssign(object):
     def load(tenx, rdata, assay, symbol, filter_cells, filter_transcripts, common_genes):
         sce_experiment = SingleCellExperiment.fromRData(rdata)
         assert symbol in sce_experiment.rowData.keys()
-        genes = list(map(lambda x: x.upper(), list(sce_experiment.rowData["Symbol"])))
-        convert = tenx.gene_map(genes)
+        genes = tenx.get_genes(sce_experiment)
         barcodes = list(sce_experiment.colData["Barcode"])
         matrix = sce_experiment.assays[assay]
+        assert matrix.shape[0] == len(genes), "Mismatch Genes Dimensions."
         def subset(gene,row):
             return gene in common_genes
         assert len(genes) == matrix.shape[0]
@@ -61,6 +60,7 @@ class CellAssign(object):
         matrix_t = numpy.transpose(matrix)
         if filter_transcripts:
             _genes = []
+            assert matrix_t.shape[0] == len(genes), "Mismatch Filter Dimensions."
             for gene, col in zip(genes,matrix_t):
                 if list(map(int, row)).count(0) > 0:
                     _matrix.append(list(col))
@@ -76,7 +76,7 @@ class CellAssign(object):
                 _barcodes.append(barcode)
         barcodes = _barcodes
         matrix_t = numpy.transpose(matrix_f)
-        return matrix_t, barcodes, genes
+        return matrix_t, barcodes
 
     @staticmethod
     def write_input(matrix, rho, factors):
@@ -105,18 +105,16 @@ class CellAssign(object):
         sce = SingleCellExperiment.fromRData(rdata)
         genes = set(tenx.get_genes(sce))
         for nrdata in all_rdata[1:]:
-            _genes = tenx.get_genes(SingleCellExperiment.fromRData(rdata))
+            _genes = tenx.get_genes(SingleCellExperiment.fromRData(nrdata))
             genes = genes.intersection(set(_genes))
         genes = list(genes)
         rho = GeneMarkerMatrix(rho_matrix)
         genes = set(rho.genes).intersection(set(genes))
-        matrix_t, barcodes, origgenes = CellAssign.load(rdata, assay, symbol, filter_cells, filter_transcripts, genes)
-        print(origgenes)
+        matrix_t, barcodes = CellAssign.load(tenx, rdata, assay, symbol, filter_cells, filter_transcripts, genes)
         if additional is not None:
             for sce in additional:
-                _matrix_t, _barcodes, xgenes = CellAssign.load(sce, assay, symbol, filter_cells, filter_transcripts, genes)
-                print(set(origgenes).difference(set(xgenes)))
-                print(_matrix_t.shape, matrix_t.shape)
+                _matrix_t, _barcodes = CellAssign.load(tenx, sce, assay, symbol, filter_cells, filter_transcripts, genes)
+                assert _matrix_t.shape[0] == matrix_t.shape[0], "Stacked Matrices have differing dimensions, gene symbol issue."
                 matrix_t = numpy.hstack((matrix_t,_matrix_t))
                 barcodes += _barcodes
         matrix_t = numpy.array(matrix_t)

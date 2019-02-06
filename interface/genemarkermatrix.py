@@ -17,7 +17,7 @@ def generate_json(analysis, sce, organ):
     matrix = collections.defaultdict(list)
     for row in rows:
         row = dict(zip(header,row.split("\t")))
-        if "Hs" in row["species"] and row["organ"] == organ:
+        if "Hs" in row["species"] and row["organ"].lower() == organ.lower():
             if float(row["ubiquitousness index"]):
                 matrix[row["cell type"]].append(row["official gene symbol"])
                 aliases = row["nicknames"].split("|")
