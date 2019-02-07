@@ -21,7 +21,6 @@ class Results(object):
             os.makedirs(self.report_dir)
         except Exception as e:
             print(e)
-            exit(0)
             pass
         try:
             os.makedirs(self.sce_dir)

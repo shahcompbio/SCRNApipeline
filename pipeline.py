@@ -108,6 +108,8 @@ def create_workflow():
     bcls     = runner.set_bcl(bcl_directory)
     fastqs   = runner.set_fastq(fastq_directories)
     workflow = runner.get_workflow()
+    if args.get("primary"):
+        return workflow
 
     tenx_analysis = args.get("tenx", None)
     rdata = args.get("rdata", None)
@@ -157,27 +159,27 @@ def create_workflow():
             rho_matrix = generate_json(tenx, sce, config.organ)
         else:
             raise AssertionError("Not implemented.")
-        # secondary_analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
+        secondary_analysis.run_cell_assign(rho_matrix, tenx_analysis, additional=combine_assign)
         results.add_cellassign_pkl(secondary_analysis.cell_assign_fit)
         results.add_cellassign_raw(secondary_analysis.cell_assign_rdata)
 
-    path = secondary_analysis.plot_cell_types()
-    results.add_plot(path, "Cell Type Frequency")
-    path = secondary_analysis.plot_cell_type_by_cluster(tenx_analysis)
-    results.add_plot(path, "Cell Type by Cluster")
+        path = secondary_analysis.plot_cell_types()
+        results.add_plot(path, "Cell Type Frequency")
+        path = secondary_analysis.plot_cell_type_by_cluster(tenx_analysis)
+        results.add_plot(path, "Cell Type by Cluster")
 
-    path = secondary_analysis.plot_tsne_by_cell_type()
-    results.add_plot(path, "TSNE by Cell Type")
+        path = secondary_analysis.plot_tsne_by_cell_type()
+        results.add_plot(path, "TSNE by Cell Type")
 
-    path = secondary_analysis.plot_pca_by_cell_type()
-    results.add_plot(path, "PCA by Cell Type")
+        path = secondary_analysis.plot_pca_by_cell_type()
+        results.add_plot(path, "PCA by Cell Type")
 
-    path = secondary_analysis.plot_pca_by_cell_type()
-    results.add_plot(path, "UMAP by Cell Type")
+        # path = secondary_analysis.plot_umap_by_cell_type()
+        # results.add_plot(path, "UMAP by Cell Type")
 
-    path1, path2 = secondary_analysis.marker_analysis(tenx, rho_matrix)
-    results.add_plot(path1, "Heat Marker Gene Matrix")
-    results.add_plot(path2, "Stacked Vin Marker Gene Matrix")
+        path1, path2 = secondary_analysis.marker_analysis(tenx, rho_matrix)
+        results.add_plot(path1, "Heat Marker Gene Matrix")
+        results.add_plot(path2, "Stacked Vin Marker Gene Matrix")
 
 
     """
@@ -251,14 +253,14 @@ def create_workflow():
             title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
             results.add_plot(png,title)
 
-        #secondary_analysis.plot_cluster_markers(tenx_analysis, rep="TSNE", pcs=50)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="TSNE", pcs=50)
 
         pca_cluster_markers = glob.glob("figures/expression/*tsne*png")
         for png in pca_cluster_markers:
             title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
             results.add_plot(png,title)
 
-        #secondary_analysis.plot_cluster_markers(tenx_analysis, rep="UMAP", pcs=50)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="UMAP", pcs=50)
 
         pca_cluster_markers = glob.glob("figures/expression/*umap*png")
         for png in pca_cluster_markers:
@@ -267,7 +269,7 @@ def create_workflow():
 
         template = os.path.join(output,"scvis/5_2/*0.tsv")
         embedding_file = glob.glob(template)[0]
-        #secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
 
         pca_cluster_markers = glob.glob("figures/expression/*scvis_5_2*png")
         for png in pca_cluster_markers:
@@ -276,7 +278,7 @@ def create_workflow():
 
         template = os.path.join(output,"scvis/5_10/*0.tsv")
         embedding_file = glob.glob(template)[0]
-        #secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
 
         pca_cluster_markers = glob.glob("figures/expression/*scvis_5_10*png")
         for png in pca_cluster_markers:
@@ -285,7 +287,7 @@ def create_workflow():
 
         template = os.path.join(output,"scvis/5_50/*0.tsv")
         embedding_file = glob.glob(template)[0]
-        #secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
 
         pca_cluster_markers = glob.glob("figures/expression/*scvis_5_50*png")
         for png in pca_cluster_markers:
@@ -342,6 +344,7 @@ if __name__ == '__main__':
     argparser.add_argument("--combine", nargs='+', type=str, help="Library prefixes to aggregate.")
     argparser.add_argument("--yaml", type=str, help="Configuration settings for pipeline.")
     argparser.add_argument("--recipe", type=str, help="Normalization and filtering recipe.")
+    argparser.add_argument("--primary", action="store_true", help="Only run cellranger.")
 
     parsed_args = argparser.parse_args()
 

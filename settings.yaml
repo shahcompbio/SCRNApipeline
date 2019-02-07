@@ -1,6 +1,6 @@
-prefix: Pre_Treatment
-reference: "/home/nceglia/codebase/refdata/GRCh38"
-rho_matrix: "/home/nceglia/codebase/refdata/rho.json"
+prefix: VOA11019SA-CD45
+reference: "/pipeline/reference/GRCh38"
+rho_matrix: None
 #organ: "Immune system"
 copy_number_data: None
 scviz_embedding: None

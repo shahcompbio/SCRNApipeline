@@ -9,6 +9,7 @@ from utils.config import Configuration
 import matplotlib.pyplot as plt
 import numpy
 import shutil
+import gzip
 
 from interface.singlecellexperiment import SingleCellExperiment
 
@@ -18,7 +19,7 @@ class TenxAnalysis(object):
 
     def __init__(self, directory):
         self.path = directory
-        self.raw_gene_bc_matrices = os.path.join(self.path, 'raw_gene_bc_matrices')
+        self.raw_gene_bc_matrices = os.path.join(self.path, 'raw_feature_bc_matrix')
         if not os.path.exists(self.raw_gene_bc_matrices):
             try:
                 print("Raw gene matrices not found.  Looking for aggregated suffix...")
@@ -27,7 +28,7 @@ class TenxAnalysis(object):
                 print("Aggregated suffix found.")
             except AssertionError as e:
                 print("No raw gene matrices found. " + self.raw_gene_bc_matrices)
-        self.filtered_gene_bc_matrices = os.path.join(self.path, 'filtered_gene_bc_matrices')
+        self.filtered_gene_bc_matrices = os.path.join(self.path, 'filtered_feature_bc_matrix')
         if not os.path.exists(self.filtered_gene_bc_matrices):
             try:
                 print("Filtered gene matrices not found.  Looking for aggregated suffix...")
@@ -41,13 +42,24 @@ class TenxAnalysis(object):
         self.projection = os.path.join(self.path, 'analysis/pca/10_components/projection.csv')
         self.cellranger_tsne = os.path.join(self.path, 'analysis/tsne/2_components/projection.csv')
         self.top_level = "/".join(self.path.split("/")[:-3])
+        gzipped  = glob.glob(self.filtered_gene_bc_matrices + "/*.gz")
+        gzipped += glob.glob(self.raw_gene_bc_matrices + "/*.gz")
+        for gz in gzipped:
+            if not os.path.exists(gz.strip(".gz")):
+                with gzip.open(gz,"rb") as f:
+                    content = f.read().decode("utf-8")
+                with open(gz.strip(".gz"),"w") as f:
+                    f.write(content)
+                print("Decompressed {}".format(gz))
 
     def filtered_matrices(self):
         matrices = os.path.join(self.filtered_gene_bc_matrices, config.build + "/")
+        matrices = self.filtered_gene_bc_matrices
         return matrices
 
     def raw_matrices(self):
         matrices = os.path.join(self.raw_gene_bc_matrices, config.build + "/")
+        matrices = self.raw_gene_bc_matrices
         return matrices
 
     def filtered_barcodes(self):

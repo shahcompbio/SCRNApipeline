@@ -10,7 +10,7 @@ def yaml_configuration():
 
 class Configuration(object):
     def __init__(self):
-        self.reference = "/igo_large/reference/GRCh38"
+        self.reference = "/pipeline/reference/GRCh38"
         self.copy_number_data = None
         self.scviz_embedding = None
         self.build = self.reference.split("/")[-1]
