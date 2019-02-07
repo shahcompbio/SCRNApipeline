@@ -14,17 +14,9 @@ import numpy
 import collections
 import os
 import sys
-from PIL import Image
-import fpdf
 
 sns.set(style="darkgrid")
 
-def combine_figures(figures,filename):
-    pdf = fpdf.FPDF()
-    for figure in figures:
-        pdf.add_page()
-        pdf.image(figure,10,10,250,150)
-    pdf.output(filename, "F")
 
 def celltypes(rdata, cell_assign_fit, prefix, output):
     sce = SingleCellExperiment.fromRData(rdata)
@@ -490,7 +482,7 @@ def marker_analysis(sce, tenx, rho, cell_assign_fit, figure):
     print(marker_genes)
     sc.pl.dotplot(adata, marker_genes, groupby='Cell Type', save="matrix.png")
     sc.pl.stacked_violin(adata, marker_genes, groupby='Cell Type', rotation=90, save="vin_stacked.png")
-    return ["dot_plot.png", "vin_stacked.png"]
+    return ["dot_plot.png", "stacked_violinvin_stacked.png"]
 
 
 if __name__ == '__main__':

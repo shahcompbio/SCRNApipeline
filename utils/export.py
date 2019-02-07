@@ -43,19 +43,32 @@ def exportMD(results):
     output.write("***\n")
     output.write("\n\n## Pipeline Output\n")
     output.write(" - [CellRanger Summary]({})\n".format(results.summary))
-    output.write(" - SCE Object (TenX Filtered): {}\n\n".format(results.filtered_sce))
-    output.write(" - QC Workflow {}\n\n".format(config.qc_type))
+    output.write(" - SCE Object (TenX Raw): unfiltered_sce.rdata\n\n".format(results.filtered_sce))
+    output.write(" - SCE Object (TenX Filtered): filtered_sce.rdata\n\n".format(results.filtered_sce))
+    output.write(" - SCE Object (QC'd): {}\n\n".format(results.filtered_sce))
+    output.write(" - CellAssign R Object: {}\n\n".format(results.raw))
+    output.write(" - QC Workflow {} - Standard\n\n".format(config.qc_type))
     output.write(" - R QC Workflow: {}\n\n".format(results.script))
 
     output.write("***\n")
     output.write("## Quality Control\n")
-    output.write("### FastQC\n")
-    for summary in results.qc_reports():
-        output.write(" - [{}]({})\n".format(summary, summary))
+    code = open(results.script,"r").read()
 
+    output.write("\n```\n")
+    output.write(code+"\n")
+    output.write("\n```\n")
+    # output.write("### FastQC\n")
+    # for summary in results.qc_reports():
+    #     output.write(" - [{}]({})\n".format(summary, summary))
+
+    output.write("## Analysis\n")
     for plot in results.plots:
         output.write("\n### {}\n".format(plot["header"]))
         output.write("![{}]({})\n".format(plot["desc"],plot["path"]))
+
+    # output.write("### FastQC\n")
+    # for summary in results.qc_reports():
+    #     output.write(" - [{}]({})\n".format(summary, summary))
 
     output.close()
     convertHTML(markdown, results.report_dir)
