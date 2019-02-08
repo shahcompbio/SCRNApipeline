@@ -68,6 +68,7 @@ from utils.reporting import Results
 from utils.config import Configuration
 from utils.export import exportMD, ScaterCode
 from utils import plotting
+from utils.cloud import DataStorage, VirtualMachine
 
 from workflow import PrimaryRun, SecondaryAnalysis
 
@@ -85,6 +86,7 @@ def create_workflow():
     prefix = args.get("prefix","./")
     output = args.get("out","./")
     recipe = args.get("recipe","basic")
+    azure_sample = args.get("azure",None)
 
     results = Results(output)
     runner  = PrimaryRun(workflow, prefix, output)
@@ -104,11 +106,14 @@ def create_workflow():
     """
     Setup
     """
-
-    bcls     = runner.set_bcl(bcl_directory)
-    fastqs   = runner.set_fastq(fastq_directories)
+    if azure_sample != None:
+        fastqs   = runner.pull_data()
+    else:
+        bcls     = runner.set_bcl(bcl_directory)
+        fastqs   = runner.set_fastq(fastq_directories)
     workflow = runner.get_workflow()
     if args.get("primary"):
+        runner.upload()
         return workflow
 
     tenx_analysis = args.get("tenx", None)

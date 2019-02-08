@@ -14,6 +14,7 @@ from interface.tenxanalysis import TenxAnalysis
 from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.singlecellexperiment import SingleCellExperiment
 from utils.export import exportRMD, ScaterCode
+from utils.cloud import DataStorage
 
 from utils import plotting, combine
 
@@ -36,6 +37,16 @@ class PrimaryRun(object):
     def generate_subprefix(self, directory):
         return "generic"
 
+    def get_output(self):
+        return os.path.join(self.output,self.prefix,"outs")
+
+    def upload(self, tenx):
+        outs = self.get_output()
+        tenx = TenxAnalysis(outs)
+        tenx.finalize()
+        storage = DataStorage(self.prefix)
+        storage.upload_results(tenx)
+
     def set_bcl(self, bcl_directory):
         if bcl_directory is not None:
             self.bcl = bcl_directory
@@ -56,6 +67,10 @@ class PrimaryRun(object):
             self.set_fastq(fastq_directories)
         else:
             print("No BCL to run.")
+
+    def pull_data(self):
+        storage = DataStorage(self.prefix)
+        return storage.download_fastqs()
 
     def set_fastq(self, fastq_directories):
         self.fastq_directories = fastq_directories

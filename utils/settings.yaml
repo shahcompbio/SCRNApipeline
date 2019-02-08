@@ -1,0 +1,19 @@
+prefix: VOA11019SA-CD45
+reference: "/pipeline/reference/GRCh38"
+rho_matrix: None
+#organ: "Immune system"
+copy_number_data: None
+scviz_embedding: None
+chemistry: "SC5P-R2"
+run_scvis: False
+run_cellassign: True
+run_clonealign: False
+plot_scvis: True
+clustering: True
+report: False
+perplexity: 5
+resolution: 0.2
+stds: 6
+low_counts_genes_threshold: 4
+n_top_genes: 1000
+tables: False

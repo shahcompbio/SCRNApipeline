@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy
 import shutil
 import gzip
+import tarfile
 
 from interface.singlecellexperiment import SingleCellExperiment
 
@@ -51,6 +52,34 @@ class TenxAnalysis(object):
                 with open(gz.strip(".gz"),"w") as f:
                     f.write(content)
                 print("Decompressed {}".format(gz))
+
+
+    def finalize(self):
+        outs = "/".join(self.path.split("/")[:-1])
+        bamdir = os.path.join(outs,"bams")
+        try:
+            os.makedirs(bamdir)
+        except Exception as e:
+            bams = glob.glob(self.path + "/pos*")
+            for bam in bams:
+                shutil.move(bam,bamdir)
+        self.bamtarball = os.path.join(outs, "bam.tar.gz")
+        sample = self.path.split("/")[-2] + ".tar.gz"
+        base = "/".join(self.path.split("/")[:-1])
+        self.outstarball = os.path.join(base, sample)
+        print(self.path)
+        print(self.outstarball)
+        print(self.bamtarball)
+        with tarfile.open(self.outstarball, "w:gz") as tar:
+            tar.add(self.path, arcname=os.path.basename(self.path))
+        with tarfile.open(self.bamtarball, "w:gz") as tar:
+            tar.add(bamdir, arcname=os.path.basename(bamdir))
+
+    def bam_tarball(self):
+        return self.bamtarball
+
+    def outs_tarball(self):
+        return self.outstarball
 
     def filtered_matrices(self):
         matrices = os.path.join(self.filtered_gene_bc_matrices, config.build + "/")
