@@ -113,7 +113,7 @@ def create_workflow():
         fastqs        = runner.pull_fastq(fastq_directories)
         bcls          = runner.pull_bcls()
         tenx_analysis = runner.pull_tenx(tenx_analysis)
-        print tenx_analysis
+        print(tenx_analysis)
     exit(0)
     bcls     = runner.set_bcl(bcl_directory)
     fastqs   = runner.set_fastq(fastq_directories)
