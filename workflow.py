@@ -29,6 +29,7 @@ class PrimaryRun(object):
         self.subprefixes = []
         self.workflow = workflow
         self.output = output
+        self.storage = DataStorage(self.prefix)
         try:
             os.makedirs(os.path.join(output,"fastqc"))
         except OSError:
@@ -68,9 +69,14 @@ class PrimaryRun(object):
         else:
             print("No BCL to run.")
 
-    def pull_data(self):
-        storage = DataStorage(self.prefix)
-        return storage.download_fastqs()
+    def pull_fastqs(self):
+        return self.storage.download_fastqs()
+
+    def pull_bcls(self):
+        raise ValueError("Not Implemented.")
+
+    def pull_tenx(self):
+        return sellf.storage.download_tenx()
 
     def set_fastq(self, fastq_directories):
         self.fastq_directories = fastq_directories

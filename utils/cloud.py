@@ -67,7 +67,7 @@ class DataStorage(object):
         return self.datapath
 
 
-    def download_results(self):
+    def download_tenx(self):
         tenx = "{}.tar.gz".format(self.sampleid)
         local = os.path.join(self.jobpath, tenx)
         cmd = "az storage blob download -n {blob} -f {path} --account-name scrna --container-name cellranger --auth-mode login".format(blob=tenx, path=local)
@@ -90,9 +90,14 @@ class VirtualMachine(object):
         print('\nCreating Linux Virtual Machine')
         vm_parameters = create_vm_parameters(nic.id, VM_REFERENCE['linux'])
         print(vm_parameters)
-        async_vm_creation = compute_client.virtual_machines.create_or_update(
-            GROUP_NAME, VM_NAME, vm_parameters)
+        async_vm_creation = compute_client.virtual_machines.create_or_update(GROUP_NAME, VM_NAME, vm_parameters)
         async_vm_creation.wait()
+
+    def run_job(self):
+        pass
+
+    def check_status(self):
+        pass
 
 if __name__ == '__main__':
     testdata = DataStorage("SC_723")

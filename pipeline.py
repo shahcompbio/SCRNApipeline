@@ -86,7 +86,11 @@ def create_workflow():
     prefix = args.get("prefix","./")
     output = args.get("out","./")
     recipe = args.get("recipe","basic")
-    azure_sample = args.get("azure",None)
+    azure = args.get("azure",None)
+    spin_up = args.get("vm",None)
+
+    if spin_up != None:
+        VirtualMachine()
 
     results = Results(output)
     runner  = PrimaryRun(workflow, prefix, output)
@@ -99,24 +103,23 @@ def create_workflow():
         if agg_type == "tenx":
             runner.aggregate_libraries_tenx(aggregate, libbase)
             args["tenx"] = os.path.join(output,"run_{}/outs".format(prefix))
-        if agg_type == "scanorama":
-            runner.aggregate_libraries_scanorama(aggregate,libbase)
-            args["tenx"] = os.path.join(output,"run_{}/outs".format(prefix))
 
     """
     Setup
     """
-    if azure_sample != None:
-        fastqs   = runner.pull_data()
-    else:
-        bcls     = runner.set_bcl(bcl_directory)
-        fastqs   = runner.set_fastq(fastq_directories)
-    workflow = runner.get_workflow()
-    if args.get("primary"):
-        runner.upload()
-        return workflow
-
     tenx_analysis = args.get("tenx", None)
+
+    if azure_sample != None:
+        fastqs        = runner.pull_fastq(fastq_directories)
+        bcls          = runner.pull_bcls()
+        tenx_analysis = runner.pull_tenx(tenx_analysis)
+        print tenx_analysis
+    exit(0)
+    bcls     = runner.set_bcl(bcl_directory)
+    fastqs   = runner.set_fastq(fastq_directories)
+    workflow = runner.get_workflow()
+
+
     rdata = args.get("rdata", None)
 
     secondary_analysis  = SecondaryAnalysis(workflow, prefix, output)
