@@ -157,7 +157,7 @@ def tsne_by_cluster(rdata, tenx_analysis, prefix, pcs):
     ax.set_title("TSNE - Clusters - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/tsne_by_cluster.png")
+    plt.savefig("figures/{}/tsne_by_cluster.png".format(prefix))
 
 def tsne_by_cluster_markers(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)

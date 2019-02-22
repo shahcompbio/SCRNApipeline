@@ -76,7 +76,7 @@ class PrimaryRun(object):
         raise ValueError("Not Implemented.")
 
     def pull_tenx(self):
-        return sellf.storage.download_tenx()
+        return self.storage.download_tenx()
 
     def set_fastq(self, fastq_directories):
         self.fastq_directories = fastq_directories

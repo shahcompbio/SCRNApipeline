@@ -36,7 +36,8 @@ class SCViz(object):
         counts = []
         for i in range(0,len(embedding),components):
             counts.append(embedding[i:i+(components)])
-        counts = numpy.array(counts)
+        counts = numpy.array(counts[0])
+        print (counts.shape)
         header = []
         for c in range(components):
             header.append("PC_{}".format(c))

@@ -86,7 +86,6 @@ def create_workflow():
     prefix = args.get("prefix","./")
     output = args.get("out","./")
     recipe = args.get("recipe","basic")
-    azure = args.get("azure",None)
     spin_up = args.get("vm",None)
 
     if spin_up != None:
@@ -109,10 +108,10 @@ def create_workflow():
     """
     tenx_analysis = args.get("tenx", None)
 
-    if azure_sample != None:
-        fastqs        = runner.pull_fastq(fastq_directories)
-        bcls          = runner.pull_bcls()
-        tenx_analysis = runner.pull_tenx(tenx_analysis)
+    if args['primary']:
+        # fastqs        = runner.pull_fastqs()
+        # bcls          = runner.pull_bcls()
+        tenx_analysis = runner.pull_tenx()
         print(tenx_analysis)
     exit(0)
     bcls     = runner.set_bcl(bcl_directory)

@@ -6,53 +6,131 @@ from sklearn import cluster
 import pandas
 import subprocess
 from utils.config import Configuration
+from utils.cloud import TenxDataStorage
 import matplotlib.pyplot as plt
 import numpy
 import shutil
 import gzip
 import tarfile
-
+import pyparsing as pp
 from interface.singlecellexperiment import SingleCellExperiment
 
 config = Configuration()
 
 class TenxAnalysis(object):
 
-    def __init__(self, directory):
+    def __init__(self, directory, cloud=False):
+        if not os.path.exists(directory):
+            self.sample = directory
+            if not os.path.exists(".cache/{}".format(self.sample)):
+                cloud_storage = TenxDataStorage(self.sample)
+                directory = cloud_storage.download()
+            else:
+                directory = ".cache/{}".format(self.sample)
         self.path = directory
-        self.raw_gene_bc_matrices = os.path.join(self.path, 'raw_feature_bc_matrix')
-        if not os.path.exists(self.raw_gene_bc_matrices):
-            try:
-                print("Raw gene matrices not found.  Looking for aggregated suffix...")
-                self.raw_gene_bc_matrices = self.raw_gene_bc_matrices + "_mex"
-                assert os.path.exists(self.raw_gene_bc_matrices)
-                print("Aggregated suffix found.")
-            except AssertionError as e:
-                print("No raw gene matrices found. " + self.raw_gene_bc_matrices)
-        self.filtered_gene_bc_matrices = os.path.join(self.path, 'filtered_feature_bc_matrix')
-        if not os.path.exists(self.filtered_gene_bc_matrices):
-            try:
-                print("Filtered gene matrices not found.  Looking for aggregated suffix...")
-                self.filtered_gene_bc_matrices = self.filtered_gene_bc_matrices + "_mex"
-                assert os.path.exists(self.filtered_gene_bc_matrices)
-                print("Aggregated suffix found.")
-            except AssertionError as e:
-                print("No filtered gene matrices found." + self.filtered_gene_bc_matrices)
+        v3_path_raw = self.raw_gene_bc_matrices = os.path.join(self.path, 'raw_feature_bc_matrix')
+        v2_path_raw = self.raw_gene_bc_matrices = os.path.join(self.path, 'raw_gene_bc_matrices')
+        if os.path.exists(v3_path_raw):
+            self.raw_gene_bc_matrices = v3_path_raw
+            self.detected_version = "v3"
+        elif os.path.exists(v2_path_raw):
+            self.raw_gene_bc_matrices = v2_path_raw
+            self.detected_version = "v2"
+        elif os.path.exists(v3_path_raw + "_mex"):
+            self.raw_gene_bc_matrices = v3_path_raw + "_mex"
+            self.detected_version = "v3"
+        elif os.path.exists(v2_path_raw + "_mex"):
+            self.raw_gene_bc_matrices = v2_path_raw + "_mex"
+            self.detected_version = "v2"
+        else:
+            raise ValueError("No Matrices folder found -- Check dir name (raw_feature_bc_matrix or raw_gene_bc_matrices)")
+        v3_path_filtered = os.path.join(self.path, 'filtered_feature_bc_matrix')
+        v2_path_filtered = os.path.join(self.path, 'filtered_gene_bc_matrices')
+        if os.path.exists(v3_path_filtered):
+            self.filtered_gene_bc_matrices = v3_path_filtered
+            self.detected_version = "v3"
+        elif os.path.exists(v2_path_filtered):
+            self.filtered_gene_bc_matrices = v2_path_filtered
+            self.detected_version = "v2"
+        elif os.path.exists(v3_path_filtered + "_mex"):
+            self.filtered_gene_bc_matrices = v3_path_filtered + "_mex"
+            self.detected_version = "v3"
+        elif os.path.exists(v2_path_filtered + "_mex"):
+            self.filtered_gene_bc_matrices = v2_path_filtered + "_mex"
+            self.detected_version = "v2"
+        else:
+            raise ValueError("No Matrices folder found -- Check dir name (filtered_feature_bc_matrix or filtered_gene_bc_matrices)")
         self.clustering = os.path.join(self.path, 'analysis/clustering')
         self.matrix = os.path.join(self.path, "")
         self.projection = os.path.join(self.path, 'analysis/pca/10_components/projection.csv')
         self.cellranger_tsne = os.path.join(self.path, 'analysis/tsne/2_components/projection.csv')
+        self.summary = os.path.join(self.path,"web_summary.html")
+        self.metrics_summary = os.path.join(self.path, "metrics_summary.csv")
         self.top_level = "/".join(self.path.split("/")[:-3])
-        gzipped  = glob.glob(self.filtered_gene_bc_matrices + "/*.gz")
-        gzipped += glob.glob(self.raw_gene_bc_matrices + "/*.gz")
-        for gz in gzipped:
-            if not os.path.exists(gz.strip(".gz")):
-                with gzip.open(gz,"rb") as f:
-                    content = f.read().decode("utf-8")
-                with open(gz.strip(".gz"),"w") as f:
-                    f.write(content)
-                print("Decompressed {}".format(gz))
+        self.extract()
+        for attr, value in self.metrics.items():
+            attr = "_".join(attr.split()).lower()
+            value = value.replace('"','').replace(",","")
+            setattr(self,attr,value)
 
+    def decompress(self,gzipped,extracted):
+        with gzip.open(gzipped, 'rb') as f_in:
+            with open(extracted, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+    def extract(self):
+        def check_and_decompress(gzipped,flat):
+            if os.path.exists(gzipped) and not os.path.exists(flat):
+                self.decompress(gzipped, flat)
+        
+        filtered = self.filtered_matrices()
+        self.gzipped_filtered_barcodes = os.path.join(filtered, "barcodes.tsv.gz")
+        self.filtered_barcodes = self.gzipped_filtered_barcodes.replace(".gz","")
+        check_and_decompress(self.gzipped_filtered_barcodes,self.filtered_barcodes)
+        self.gzipped_filtered_matrices = os.path.join(filtered, "matrix.mtx.gz")
+        self.filtered_matrices = self.gzipped_filtered_matrices.replace(".gz","")
+        check_and_decompress(self.gzipped_filtered_matrices,self.filtered_matrices)
+        self.gzipped_filtered_genes = os.path.join(filtered, "features.tsv.gz")
+        self.filtered_genes = self.gzipped_filtered_genes.replace("features","genes").replace(".gz","")
+        check_and_decompress(self.gzipped_filtered_genes,self.filtered_genes)
+        
+        raw = self.raw_matrices()
+        self.gzipped_raw_barcodes = os.path.join(raw, "barcodes.tsv.gz")
+        self.raw_barcodes = self.gzipped_raw_barcodes.replace(".gz","")
+        check_and_decompress(self.gzipped_raw_barcodes,self.raw_barcodes)
+        self.gzipped_raw_matrices = os.path.join(raw, "matrix.mtx.gz")
+        self.raw_matrices = self.gzipped_raw_matrices.replace(".gz","")
+        check_and_decompress(self.gzipped_raw_matrices,self.raw_matrices)
+        self.gzipped_raw_genes = os.path.join(raw, "features.tsv.gz")
+        self.raw_genes = self.gzipped_raw_genes.replace("features","genes").replace(".gz","")
+        check_and_decompress(self.gzipped_raw_genes,self.raw_genes)
+
+    @property
+    def chemistry(self):
+        return self._chemistry
+    
+    @chemistry.getter
+    def chemistry(self):
+        rows = open(self.summary,"r").read().splitlines()
+        for i, row in enumerate(rows):
+            if "Chemistry" in row:
+                break
+        chem = rows[i+1].strip().replace("<td>","").replace("</td>","")
+        return chem
+        
+    @property
+    def metrics(self):
+        return self._metrics
+    
+    @metrics.getter
+    def metrics(self):
+        rows = open(self.metrics_summary,"r").read().splitlines()
+        header = rows.pop(0)
+        header = pp.commaSeparatedList.parseString(header).asList()
+        stats = rows.pop(0)
+        stats = pp.commaSeparatedList.parseString(stats).asList()
+        assert len(header) == len(stats), "{} - {}".format(len(header),len(stats))
+        return dict(zip(header,stats))
 
     def finalize(self):
         outs = "/".join(self.path.split("/")[:-1])
@@ -67,13 +145,14 @@ class TenxAnalysis(object):
         sample = self.path.split("/")[-2] + ".tar.gz"
         base = "/".join(self.path.split("/")[:-1])
         self.outstarball = os.path.join(base, sample)
-        print(self.path)
-        print(self.outstarball)
-        print(self.bamtarball)
         with tarfile.open(self.outstarball, "w:gz") as tar:
             tar.add(self.path, arcname=os.path.basename(self.path))
         with tarfile.open(self.bamtarball, "w:gz") as tar:
             tar.add(bamdir, arcname=os.path.basename(bamdir))
+            
+            
+    def filtered_sce(self):
+        return TenX.read10xCountsFiltered(tenx,rdata)
 
     def bam_tarball(self):
         return self.bamtarball
@@ -82,14 +161,16 @@ class TenxAnalysis(object):
         return self.outstarball
 
     def filtered_matrices(self):
-        matrices = os.path.join(self.filtered_gene_bc_matrices, config.build + "/")
-        matrices = self.filtered_gene_bc_matrices
-        return matrices
+        if self.detected_version == "v3":
+            return self.filtered_gene_bc_matrices
+        else:
+            return os.path.join(self.filtered_gene_bc_matrices, config.build + "/")
 
     def raw_matrices(self):
-        matrices = os.path.join(self.raw_gene_bc_matrices, config.build + "/")
-        matrices = self.raw_gene_bc_matrices
-        return matrices
+        if self.detected_version == "v3":
+            return self.raw_gene_bc_matrices
+        else:
+            return os.path.join(self.raw_gene_bc_matrices, config.build + "/")
 
     def filtered_barcodes(self):
         barcode_file = os.path.join(self.filtered_matrices(),"barcodes.tsv")
@@ -177,9 +258,9 @@ class TenxAnalysis(object):
         assert set(adata.var.index) == set(transcripts), "Issues with symbol conversion."
         adata = adata[barcodes,:]
         adata.var_names_make_unique()
-        var_transcripts = sc.pp.highly_variable_genes(adata, flavor="cell_ranger", inplace=False)
-        assert len(var_transcripts) == len(adata.var.index)
         if high_var:
+            var_transcripts = sc.pp.highly_variable_genes(adata, flavor="cell_ranger", inplace=False)
+            assert len(var_transcripts) == len(adata.var.index)
             var_transcripts = [x[0] for x in zip(adata.var.index, var_transcripts) if x[1][0] == True]
             adata = adata[:,var_transcripts]
         if not fast_load:

@@ -3,45 +3,50 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
 import os, uuid, sys
 from azure.storage.blob import BlockBlobService, PublicAccess
-from config import *
+from utils.config import *
 import subprocess
 import json
+import tarfile
+import shutil
+import gzip
 
-from interface.tenxanalysis import TenxAnalysis
 
 os.environ["AZURE_STORAGE_ACCOUNT"] = "singlecelldata"
 os.environ["AZURE_STORAGE_KEY"] = "436b89a7-3b73-4644-a97b-949c4d0f19f5"
 
-class DataStorage(object):
+class ResultsInterface(object):
 
-    def __init__(self, sampleid):
+    def __init__(self, version="", dir="./tmp"):
+        self.dir = dir + version
+        try:
+            os.makedirs(dir)
+        except Exception as e:
+            pass
+        self.results = []
+        self.version = version
+        cmd = "az storage blob list --container-name cellranger{} --account-name scrnadata --auth-mode login".format(version)
+        json_dump = subprocess.check_output(cmd.split())
+        blobs = json.loads(json_dump)
+        for blob in blobs:
+            result = DataStorage(blob["name"])
+            result.download_tenx(path=self.dir, version=version)
+            self.results.append(result)
+
+class TenxDataStorage(object):
+
+    def __init__(self, sampleid, version="v3"):
         self.sampleid = sampleid
         self.storage_account = "scrnadata"
-        self.fastq_container = "rnaseq"
-        self.bcl_container = "bcl"
-        self.results_container = "cellranger"
-        self.bams_container = "bams"
-        self.block_blob_service = BlockBlobService(account_name='scrnadata',
-                                                   account_key='436b89a7-3b73-4644-a97b-949c4d0f19f5')
-        login = "az login -u nickceglia@gmail.com -p Aphahb_666"
-        subprocess.call(login.split())
-        self.datapath = "/home/nceglia/data/{sampleid}/".format(sampleid=self.sampleid)
-        self.jobpath = "/home/nceglia/jobs/{sampleid}/".format(sampleid=self.sampleid)
+        self.container = "cellranger{}".format(version)
+        self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
+        self.tenx_path = None
+        self.cache = ".cache"
         try:
-            os.makedirs(self.datapath)
-        except Exception as e:
-            pass
-        try:
-            os.makedirs(self.jobpath)
-        except Exception as e:
-            pass
-        self.jobpath = os.path.join(self.jobpath, self.sampleid)
-        try:
-            os.makedirs(self.jobpath)
+            os.makedirs(self.cache)
         except Exception as e:
             pass
 
-    def upload_results(self, tenx):
+    def upload_cellranger(self, tenx):
         bam_tarball = tenx.bam_tarball()
         bam_tarball_name = os.path.split(bam_tarball)[-1]
         outs_tarball = tenx.outs_tarball()
@@ -52,26 +57,36 @@ class DataStorage(object):
         self.upload("cellranger", outs_blob_path, bam_tarball)
 
 
-    def download_fastqs(self):
-        cmd = "az storage blob list --container-name {} --account-name scrnadata --auth-mode login".format(self.fastq_container)
-        json_dump = subprocess.check_output(cmd.split())
-        blobs = json.loads(json_dump)
-        for blob in blobs:
-            if blob["name"].startswith(self.sampleid):
-                print("Downloading {}...".format(blob["name"]))
-                blob_name = os.path.split(blob["name"])[1]
-                local = os.path.join(self.datapath,blob_name)
-                if not os.path.exists(local):
-                    cmd = "az storage blob download -n {blob} -f {path} --account-name scrna --container-name fastqs --auth-mode login".format(blob=blob_name, path=local)
-                    subprocess.call(cmd.split())
-        return self.datapath
+    def unpack(self,path):
+        tar = tarfile.open(path)
+        tar.extractall()
+        tar.close()
+        os.rename("./outs",os.path.join(self.cache,self.sampleid))
 
 
-    def download_tenx(self):
-        tenx = "{}.tar.gz".format(self.sampleid)
-        local = os.path.join(self.jobpath, tenx)
-        cmd = "az storage blob download -n {blob} -f {path} --account-name scrna --container-name cellranger --auth-mode login".format(blob=tenx, path=local)
-        return local
+    # def download_fastqs(self):
+    #     cmd = "az storage blob list --container-name {} --account-name scrnadata --auth-mode login".format(self.fastq_container)
+    #     json_dump = subprocess.check_output(cmd.split())
+    #     blobs = json.loads(json_dump)
+    #     for blob in blobs:
+    #         if blob["name"].startswith(self.sampleid):
+    #             print("Downloading {}...".format(blob["name"]))
+    #             blob_name = os.path.split(blob["name"])[1]
+    #             local = os.path.join(self.datapath,blob_name)
+    #             if not os.path.exists(local):
+    #                 cmd = "az storage blob download -n {blob} -f {path} --account-name scrnadata --container-name fastqs --auth-mode login".format(blob=blob_name, path=local)
+    #                 subprocess.call(cmd.split())
+    #     return self.datapath
+
+
+    def download(self):
+        local = ".cache/{}.tar.gz".format(self.sampleid)
+        gzipped = "{}.tar.gz".format(self.sampleid)
+        if not os.path.exists(local):
+            self.block_blob_service.get_blob_to_path(self.container, gzipped, local)
+            self.unpack(local)
+        self.tenx_path = os.path.join(self.cache,self.sampleid)
+        return self.tenx_path
 
     def upload(self,container, blob, local):
         print ("Uploading {} to {} in {}".format(container,local,blob))
