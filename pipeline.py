@@ -113,7 +113,7 @@ def create_workflow():
         # bcls          = runner.pull_bcls()
         tenx_analysis = runner.pull_tenx()
         print(tenx_analysis)
-    exit(0)
+
     bcls     = runner.set_bcl(bcl_directory)
     fastqs   = runner.set_fastq(fastq_directories)
     workflow = runner.get_workflow()
@@ -336,7 +336,6 @@ def create_workflow():
 
 
 if __name__ == '__main__':
-    exit(0)
 
     argparser = argparse.ArgumentParser()
     pypeliner.app.add_arguments(argparser)
