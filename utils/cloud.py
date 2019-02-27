@@ -96,7 +96,7 @@ class FastqDataStorage(object):
     def download_fastqs(self):
         fastqs = self.block_blob_service.list_blobs(self.container)
         for fastq in fastqs:
-            print (fastq)
+            print (fastq.name)
         # cmd = "az storage blob list --container-name  --account-name scrnadata --auth-mode login".format(self.fastq_container)
         # json_dump = subprocess.check_output(cmd.split())
         # blobs = json.loads(json_dump)
