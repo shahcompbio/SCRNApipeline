@@ -336,6 +336,7 @@ def create_workflow():
 
 
 if __name__ == '__main__':
+    exit(0)
 
     argparser = argparse.ArgumentParser()
     pypeliner.app.add_arguments(argparser)
