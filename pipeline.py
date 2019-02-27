@@ -68,7 +68,7 @@ from utils.reporting import Results
 from utils.config import Configuration
 from utils.export import exportMD, ScaterCode
 from utils import plotting
-from utils.cloud import DataStorage, VirtualMachine
+from utils.cloud import TenxDataStorage, VirtualMachine
 
 from workflow import PrimaryRun, SecondaryAnalysis
 
