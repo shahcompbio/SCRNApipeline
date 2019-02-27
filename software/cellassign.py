@@ -1,7 +1,6 @@
 import rpy2.robjects as robjects
 from rpy2.robjects.packages import importr
 from rpy2.robjects import r, pandas2ri
-from rpy2.rinterface import RRuntimeError
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.tenxanalysis import TenxAnalysis
