@@ -64,20 +64,6 @@ class TenxDataStorage(object):
         os.rename("./outs",os.path.join(self.cache,self.sampleid))
 
 
-    # def download_fastqs(self):
-    #     cmd = "az storage blob list --container-name {} --account-name scrnadata --auth-mode login".format(self.fastq_container)
-    #     json_dump = subprocess.check_output(cmd.split())
-    #     blobs = json.loads(json_dump)
-    #     for blob in blobs:
-    #         if blob["name"].startswith(self.sampleid):
-    #             print("Downloading {}...".format(blob["name"]))
-    #             blob_name = os.path.split(blob["name"])[1]
-    #             local = os.path.join(self.datapath,blob_name)
-    #             if not os.path.exists(local):
-    #                 cmd = "az storage blob download -n {blob} -f {path} --account-name scrnadata --container-name fastqs --auth-mode login".format(blob=blob_name, path=local)
-    #                 subprocess.call(cmd.split())
-    #     return self.datapath
-
 
     def download(self):
         local = ".cache/{}.tar.gz".format(self.sampleid)
@@ -92,6 +78,38 @@ class TenxDataStorage(object):
         print ("Uploading {} to {} in {}".format(container,local,blob))
         cmd = "az storage blob upload --container-name {} --file {} --name {} --auth-mode login".format(container,local,blob)
         subprocess.call(cmd.split())
+
+class FastqDataStorage(object):
+
+    def __init__(self, sampleid):
+        self.sampleid = sampleid
+        self.storage_account = "scrnadata"
+        self.container = "rnaseq"
+        self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
+        self.tenx_path = None
+        self.cache = ".cache"
+        try:
+            os.makedirs(self.cache)
+        except Exception as e:
+            pass
+
+    def download_fastqs(self):
+        fastqs = self.block_blob_service.list_blobs(self.container)
+        for fastq in fastqs:
+            print (fastq)
+        # cmd = "az storage blob list --container-name  --account-name scrnadata --auth-mode login".format(self.fastq_container)
+        # json_dump = subprocess.check_output(cmd.split())
+        # blobs = json.loads(json_dump)
+        # for blob in blobs:
+        #     if blob["name"].startswith(self.sampleid):
+        #         print("Downloading {}...".format(blob["name"]))
+        #         blob_name = os.path.split(blob["name"])[1]
+        #         local = os.path.join(self.datapath,blob_name)
+        #         if not os.path.exists(local):
+        #             cmd = "az storage blob download -n {blob} -f {path} --account-name scrnadata --container-name fastqs --auth-mode login".format(blob=blob_name, path=local)
+        #             subprocess.call(cmd.split())
+        # return self.datapath
+
 
 
 class VirtualMachine(object):
@@ -115,7 +133,5 @@ class VirtualMachine(object):
         pass
 
 if __name__ == '__main__':
-    testdata = DataStorage("SC_723")
-    tenx = TenxAnalysis("/home/nceglia/jobs/SC_723/SC_723/outs")
-    tenx.finalize()
-    testdata.upload_results(tenx)
+    test_fastqs = FastqDataStorage("test-fastqs")
+    test_fastqs.download_fastqs()

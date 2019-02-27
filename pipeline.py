@@ -161,7 +161,7 @@ def create_workflow():
         tenx = TenxAnalysis(tenx_analysis)
         if hasattr(config, "rho_matrix"):
             rho_matrix = eval(open(config.rho_matrix,"r").read())
-        elif hasattr(config, "organ"):
+        elif hasattr(config, "tissue"):
             sce = SingleCellExperiment.fromRData(secondary_analysis.sce)
             rho_matrix = generate_json(tenx, sce, config.organ)
         else:
@@ -202,31 +202,11 @@ def create_workflow():
     CloneAlign
     """
     if config.run_clonealign and config.copy_number_data is not None and config.clone_assignments is not None:
+
         secondary_analysis.run_clone_align(tenx, config.copy_number_data, config.clone_assignments)
 
 
     if config.plot_scvis:
-        template = os.path.join(output,"scvis/5_2/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=2)
-        path = os.path.join(output, path)
-        results.add_plot(path, "SCVis by Cluster (Dim 2)")
-
-
-        if os.path.exists(secondary_analysis.cell_assign_fit):
-            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=2)
-            results.add_plot(path, "SCVIS (Dim 2) by Cell Type")
-
-        template = os.path.join(output,"scvis/5_10/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=10)
-        path = os.path.join(output, path)
-        results.add_plot(path, "SCVis by Cluster (Dim 10)")
-
-
-        if os.path.exists(secondary_analysis.cell_assign_fit):
-            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=10)
-            results.add_plot(path, "SCVIS (Dim 10) by Cell Type")
 
         template = os.path.join(output,"scvis/5_50/*0.tsv")
         embedding_file = glob.glob(template)[0]
@@ -274,23 +254,6 @@ def create_workflow():
             title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
             results.add_plot(png,title)
 
-        template = os.path.join(output,"scvis/5_2/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
-
-        pca_cluster_markers = glob.glob("figures/expression/*scvis_5_2*png")
-        for png in pca_cluster_markers:
-            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
-            results.add_plot(png,title)
-
-        template = os.path.join(output,"scvis/5_10/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
-
-        pca_cluster_markers = glob.glob("figures/expression/*scvis_5_10*png")
-        for png in pca_cluster_markers:
-            title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
-            results.add_plot(png,title)
 
         template = os.path.join(output,"scvis/5_50/*0.tsv")
         embedding_file = glob.glob(template)[0]
@@ -311,11 +274,6 @@ def create_workflow():
     #     secondary_analysis.enrichment_by_cluster(tenx_analysis)
     #     secondary_analysis.enrichment_by_celltype(tenx_analysis)
     #     secondary_analysis.differential_analysis(tenx_analysis)
-
-
-    """
-    Clone Align
-    """
 
     """
     Reporting

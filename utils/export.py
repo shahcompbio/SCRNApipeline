@@ -153,7 +153,6 @@ class ScaterCode(object):
         output.write("library(stringr)\n")
         output.write("library(scran)\n")
         output.write("library(Rtsne)\n")
-        output.write("library(HDF5Array)\n")
         output.write("library(Seurat)\n")
         output.write("\n\n")
 
