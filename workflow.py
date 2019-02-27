@@ -14,7 +14,7 @@ from interface.tenxanalysis import TenxAnalysis
 from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.singlecellexperiment import SingleCellExperiment
 from utils.export import exportRMD, ScaterCode
-from utils.cloud import DataStorage
+from utils.cloud import TenxDataStorage
 
 from utils import plotting, combine
 
