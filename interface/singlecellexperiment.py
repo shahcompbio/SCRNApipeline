@@ -101,11 +101,11 @@ class SingleCellExperiment(RS4):
     @staticmethod
     def unpack(rs4_object):
         unpacked_object = dict()
-        if type(rs4_object) == rinterface.RNULLType:
+        if type(rs4_object) == None:
             return unpacked_object
         for slot in rs4_object.slotnames():
             value = rs4_object.slots[slot]
-            if type(value) == rinterface.RNULLType:
+            if type(value) == None:
                 continue
             elif type(value) == robjects.vectors.ListVector:
                 if value.names:
