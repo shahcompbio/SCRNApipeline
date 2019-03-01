@@ -87,6 +87,11 @@ def create_workflow():
     output = config.jobpath
     recipe = args.get("recipe","basic")
 
+    try:
+        cellranger_folder = os.path.join(output,prefix)
+        os.makedirs(cellranger_folder)
+    except Exception as e:
+        pass
 
     results = Results(output)
     runner  = PrimaryRun(workflow, prefix, output)

@@ -24,18 +24,15 @@ BiobaseInterface              = importr('Biobase')
 
 """
 SingleCellExperiment
-
 Specific Fields:
     int_elementMetadata
     int_colData
     int_metadata
     reducedDims
-
 Inherited from SummarizedExperiment:
     assays
     colData
     rowData
-
 Inherited from BiocGenerics
     sizeFactors
 """
@@ -187,8 +184,3 @@ class SingleCellExperiment(RS4):
                 self._assays[label] = SingleCellExperiment.DCGtoCSR(non_zero_elements, row_numbers, column_pointers, nrows)
             elif type(assay) == robjects.vectors.Matrix:
                 self._assays[label] = csr_matrix(pandas2ri.ri2py(assay))
-
-
-
-if __name__ == '__main__':
-    pass
