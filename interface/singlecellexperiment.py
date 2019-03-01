@@ -105,9 +105,12 @@ class SingleCellExperiment(RS4):
             if type(value) == rinterface.RNULLType:
                 continue
             elif type(value) == robjects.vectors.ListVector:
-                value = dict(zip(value.names, map(list,list(value))))
-                for column, data in value.items():
-                    unpacked_object[column] = data
+                try:
+                    value = dict(zip(list(value.names), map(list,list(value))))
+                    for column, data in value.items():
+                        unpacked_object[column] = data
+                except Exception as e:
+                    continue
             else:
                 unpacked_object[slot] = list(value)[0]
         return unpacked_object
