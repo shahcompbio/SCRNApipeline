@@ -107,11 +107,10 @@ class ReferenceDataStorage(object):
         self.build = build
         self.referencepath = referencepath
 
-    def unpack(self,path):
+    def extract(self,path):
         tar = tarfile.open(path)
         tar.extractall(path=self.referencepath)
         tar.close()
-        os.rename("./outs",os.path.join(self.cache,self.sampleid))
 
 
     def download(self):
