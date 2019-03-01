@@ -32,10 +32,19 @@ Build image.
 docker build .
 ```
 
+Run docker.
+```
+docker run -v /Users/ceglian/Development/docker/data:/data -v /Users/ceglian/Development/docker/jobs/:jobs -v /Users/ceglian/Development/docker/reference:/reference
+```
+
+
 Main results are stored in mounted volumes.
 ```
 ls PREFIX_report/PREFIX_results.html
 ```
+
+
+
 
 Notes:
 If the build specified in the settings.yaml is not available, it will be pulled and built.  This will take a long time.

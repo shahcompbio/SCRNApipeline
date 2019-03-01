@@ -1,6 +1,5 @@
 FROM nceglia/scrna-pipeline
-
-RUN /bin/bash -c "source /codebase/cellranger-3.0.2/sourceme.bash"
+CMD /bin/bash -c "source /codebase/cellranger-3.0.2/sourceme.bash"
 ENV PYTHONPATH $PYTHONPATH:/codebase/SCRNApipeline/
 ENV R_HOME /usr/local/lib/R/
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/R/lib/
@@ -9,4 +8,4 @@ WORKDIR /jobs/
 CMD chmod 777 /reference
 CMD chomd 777 /jobs
 CMD chmod 777 /data
-RUN python3 /codebase/SCRNApipeline/pipeline.py --fastqs test --submit local
+CMD python3 /codebase/SCRNApipeline/pipeline.py --fastqs test --submit local
