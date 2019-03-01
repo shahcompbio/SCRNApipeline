@@ -88,8 +88,6 @@ class PrimaryRun(object):
             fastq = FastQDirectory(fastq_directory, self.prefix, self.output, datapath=config.datapath)
             if not fastq.check_status():
                 self.fastqs.append(fastq)
-            else:
-                print("wtf")
         if len(self.fastqs) > 0:
             self.workflow.transform (
                 name = "{}_cellranger_counts".format(self.prefix),

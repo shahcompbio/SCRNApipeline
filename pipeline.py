@@ -83,8 +83,8 @@ def create_workflow():
     aggregate = args.get("aggregate_mlibs", list())
     libbase = args.get("lib_base", None)
     combine_assign = args.get("combine",[])
-    prefix = args.get("prefix","./")
-    output = args.get("out","/jobs/{}".format(prefix))
+    prefix = config.prefix
+    output = config.jobpath
     recipe = args.get("recipe","basic")
 
 

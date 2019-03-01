@@ -12,11 +12,11 @@ class Results(object):
 
     def __init__(self, output):
         self.plots = list()
-        self.output = output
-        self.report_dir = os.path.join(self.output,"{}_report/".format(config.prefix))
-        self.sce_dir = os.path.join(self.output, "rdata")
-        self.tables_dir = os.path.join(self.output, "tables")
-        self.figures_dir = os.path.join(self.output, "figures")
+        self.output = config.jobpath
+        self.report_dir = os.path.join(config.jobpath,"{}_report/".format(config.prefix))
+        self.sce_dir = os.path.join(config.jobpath, "rdata")
+        self.tables_dir = os.path.join(config.jobpath, "tables")
+        self.figures_dir = os.path.join(config.jobpath, "figures")
         try:
             os.makedirs(self.report_dir)
         except Exception as e:
