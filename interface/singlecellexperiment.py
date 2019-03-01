@@ -105,7 +105,7 @@ class SingleCellExperiment(RS4):
             return unpacked_object
         for slot in rs4_object.slotnames():
             value = rs4_object.slots[slot]
-            if type(value) == NULLTYPE:
+            if type(value) == rinterface.RNULLType:
                 continue
             elif type(value) == robjects.vectors.ListVector:
                 value = dict(zip(value.names, map(list,list(value))))
