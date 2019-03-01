@@ -8,11 +8,13 @@ from utils.config import Configuration
 
 config = Configuration()
 
+os.environ["PATH"] = os.environ["PATH"] + [config.cellranger]
+
 class CellRanger(object):
 
     @staticmethod
     def cmd(command, args):
-        cmd = [os.path.join(config.cellranger,"cellranger"), command]
+        cmd = ["cellranger", command]
         for flag, value in args.items():
             cmd.append("--{}".format(flag)
             )
