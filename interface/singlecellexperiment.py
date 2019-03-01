@@ -108,10 +108,9 @@ class SingleCellExperiment(RS4):
             if type(value) == None:
                 continue
             elif type(value) == robjects.vectors.ListVector:
-                if value.names:
-                    value = dict(zip(value.names, map(list,list(value))))
-                    for column, data in value.items():
-                        unpacked_object[column] = data
+                value = dict(zip(value.names, map(list,list(value))))
+                for column, data in value.items():
+                    unpacked_object[column] = data
             else:
                 unpacked_object[slot] = list(value)[0]
         return unpacked_object
