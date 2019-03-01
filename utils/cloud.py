@@ -84,6 +84,10 @@ class FastqDataStorage(object):
 
     def set_data_path(self, path):
         self.datapath = path
+        try:
+            os.makedirs(path)
+        except Exception as e:
+            pass
 
     def download_fastqs(self):
         fastqs = self.block_blob_service.list_blobs(self.container)
