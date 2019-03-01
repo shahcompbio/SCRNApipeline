@@ -4,6 +4,44 @@ Pipeline for running single cell rna-seq experiments.
 This is primarily built on Cell Ranger with additionaly analysis from CellAssign, CloneAlign, and SCViz tools.
 The workflow is inferred based on the inclusion (or omission) of command line arguments.
 
+# Running with Docker #
+
+Create a job directory with the directory structure including jobs/ data/ reference/.
+```
+mkdir somedirectory/test-run
+mkdir somedirectory/test-run/jobs
+mkdir somedirectory/test-run/data
+mkdir somedirectory/test-run/reference
+```
+
+Copy dockerfile and settings yaml into job directory.
+```
+cp docker/settings.yaml somedirectory/test-run/
+cp docker/dockerfile somedirectory/test-run/
+```
+
+Edit settings.yaml with prefix, genome build, and datapath.
+```
+prefix: "test"
+build: "test"
+datapath: "/data/test"
+```
+
+Build image.
+```
+docker build .
+```
+
+Main results are stored in mounted volumes.
+```
+ls PREFIX_report/PREFIX_results.html
+```
+
+Notes:
+If the build specified in the settings.yaml is not available, it will be pulled and built.  This will take a long time.
+
+
+
 ## Examples ##
 
 Running pipeline starting from binary base call directory (BCL) to report generation.
