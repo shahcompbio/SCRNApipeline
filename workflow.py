@@ -15,12 +15,17 @@ from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.singlecellexperiment import SingleCellExperiment
 from utils.export import exportRMD, ScaterCode
 from utils.cloud import TenxDataStorage
+from utils.config import Configuration
 
 from utils import plotting, combine
 
 import pypeliner.workflow
 import pypeliner.app
 import pypeliner.managed
+
+
+config = Configuration()
+
 
 class PrimaryRun(object):
 
@@ -29,7 +34,6 @@ class PrimaryRun(object):
         self.subprefixes = []
         self.workflow = workflow
         self.output = output
-        self.storage = DataStorage(self.prefix)
         try:
             os.makedirs(os.path.join(output,"fastqc"))
         except OSError:
@@ -40,6 +44,7 @@ class PrimaryRun(object):
 
     def get_output(self):
         return os.path.join(self.output,self.prefix,"outs")
+
 
     def upload(self, tenx):
         outs = self.get_output()
@@ -66,8 +71,6 @@ class PrimaryRun(object):
                 )
                 fastq_directories.append(bcl.out())
             self.set_fastq(fastq_directories)
-        else:
-            print("No BCL to run.")
 
     def pull_fastqs(self):
         return self.storage.download_fastqs()
@@ -82,17 +85,8 @@ class PrimaryRun(object):
         self.fastq_directories = fastq_directories
         self.fastqs = []
         for fastq_directory in self.fastq_directories:
-            fastq = FastQDirectory(fastq_directory, prefix, output)
-            #if not fastq.has_qc():
-            if False:
-                self.workflow.transform (
-                    name = "{}_fastqc".format(self.prefix),
-                    func = FastQC.run,
-                    args = (
-                        fastq,
-                    )
-                )
-            if fastq.check_status():
+            fastq = FastQDirectory(fastq_directory, self.prefix, self.output, datapath=config.datapath)
+            if not fastq.check_status():
                 self.fastqs.append(fastq)
         if len(self.fastqs) > 0:
             self.workflow.transform (
@@ -104,6 +98,7 @@ class PrimaryRun(object):
             )
         else:
             print("No FastQ to run.")
+        return self.fastqs
 
     def _generate_csv(self, libbase):
         csv = open(self.libraries_csv,"w")

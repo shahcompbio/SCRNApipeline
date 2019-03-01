@@ -34,6 +34,8 @@ def imports(handle):
     handle.write("library(Rtsne)\n")
     handle.write("```\n")
 
+def exportFinalize(results):
+    results.finalize()
 
 def exportMD(results):
     results.finalize()
@@ -54,9 +56,6 @@ def exportMD(results):
     output.write("## Quality Control\n")
     code = open(results.script,"r").read()
 
-    output.write("\n```\n")
-    output.write(code+"\n")
-    output.write("\n```\n")
     # output.write("### FastQC\n")
     # for summary in results.qc_reports():
     #     output.write(" - [{}]({})\n".format(summary, summary))
@@ -65,10 +64,6 @@ def exportMD(results):
     for plot in results.plots:
         output.write("\n### {}\n".format(plot["header"]))
         output.write("![{}]({})\n".format(plot["desc"],plot["path"]))
-
-    # output.write("### FastQC\n")
-    # for summary in results.qc_reports():
-    #     output.write(" - [{}]({})\n".format(summary, summary))
 
     output.close()
     convertHTML(markdown, results.report_dir)
@@ -124,9 +119,9 @@ def exportRMD(fastq, analysis, scater_workflow, prefix, sce, output_path):
     output.write("\n### Mitochondrial\n")
     output.write("![]({})\n".format(mito))
 
-    if with_code: codeblock(output, scater_workflow.highest_exprs)
-    output.write("\n### Highly Expressed Transcripts\n")
-    output.write("![]({})\n".format(freq))
+    # if with_code: codeblock(output, scater_workflow.highest_exprs)
+    # output.write("\n### Highly Expressed Transcripts\n")
+    # output.write("![]({})\n".format(freq))
 
     output.write("\n***\n")
     output.write("\n### TSNE (Clusters)\n")
@@ -289,29 +284,29 @@ class ScaterCode(object):
         self.sce_to_seurat(output)
         self.mito_percentage(output)
 
-        output.write("png('./figures/gene_mito_umi.png')\n")
-        self.gene_plot(output)
-        output.write("dev.off()\n")
+        # output.write("png('./figures/gene_mito_umi.png')\n")
+        # self.gene_plot(output)
+        # output.write("dev.off()\n")
+        #
+        # output.write("png('./figures/violin.png')\n")
+        # self.violin_gene_mito_umi(output)
+        # output.write("dev.off()\n")
 
-        output.write("png('./figures/violin.png')\n")
-        self.violin_gene_mito_umi(output)
-        output.write("dev.off()\n")
+        # self.filter_cells(output)
+        #
+        # self.normalize_seurat(output)
 
-        self.filter_cells(output)
-
-        self.normalize_seurat(output)
-
-        output.write("png('./figures/highly_variable_genes.png')\n")
-        self.find_highly_variable(output)
-        output.write("dev.off()\n")
+        # output.write("png('./figures/highly_variable_genes.png')\n")
+        # self.find_highly_variable(output)
+        # output.write("dev.off()\n")
 
         self.regress_out(output)
 
         self.seurat_to_sce(output)
-        self.select_highly_variable(output)
-
-        self.filter_high_mito(output,stds=config.stds)
+        # self.select_highly_variable(output)
         self.normalize(output)
+        self.filter_high_mito(output,stds=config.stds)
+
 
         output.write("png('./figures/umi_distribution.png')\n")
         self.umi(output)

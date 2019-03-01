@@ -14,6 +14,7 @@ class TenX(object):
 
     @staticmethod
     def read10xCountsRaw(tenx_analysis, output):
+        tenx_analysis.load()
         utils = DropletUtils()
         counts = utils.read10xCounts(tenx_analysis.raw_matrices())
         sce = SingleCellExperiment.fromRS4(counts)
@@ -22,8 +23,9 @@ class TenX(object):
 
     @staticmethod
     def read10xCountsFiltered(tenx_analysis, output):
+        tenx_analysis.load()
         utils = DropletUtils()
-        print(tenx_analysis.filtered_matrices())
+        print(utils)
         counts = utils.read10xCounts(tenx_analysis.filtered_matrices())
         sce = SingleCellExperiment.fromRS4(counts)
         sce.save(output)

@@ -1,8 +1,7 @@
 import os
 import yaml
 
-# if os.path.exists("")
-# yaml_file = os.path.join(os.path.split(os.path.realpath(__file__))[0], "../settings.yaml")
+from utils.cloud import ReferenceDataStorage
 
 yaml_file = os.path.join(os.getcwd(), "settings.yaml")
 def yaml_configuration():
@@ -13,16 +12,21 @@ def yaml_configuration():
 
 class Configuration(object):
     def __init__(self):
-        self.reference = "/pipeline/reference/GRCh38"
+        self.reference = None
         self.copy_number_data = None
         self.scviz_embedding = None
-        self.build = self.reference.split("/")[-1]
-        # self.chemistry = "SC5P-R2"
+        self.datapath = None
+        self.jobpath = None
+        self.referencepath = None
+        self.build = None
+        self.chemistry = "auto"
         self.qc_type = "tenx_filtered"
         overrides = yaml_configuration()
         if overrides != None:
             for attr, value in overrides.items():
                 setattr(self, attr, value)
+        refobj = ReferenceDataStorage(self.build, self.referencepath)
+        self.reference = refobj.download()
         self.genes_gtf = os.path.join(self.reference, "genes/genes.gtf")
 
 VM_REFERENCE = {

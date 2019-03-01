@@ -66,7 +66,7 @@ from interface.singlecellexperiment import SingleCellExperiment
 
 from utils.reporting import Results
 from utils.config import Configuration
-from utils.export import exportMD, ScaterCode
+from utils.export import exportMD, ScaterCode, exportFinalize
 from utils import plotting
 from utils.cloud import TenxDataStorage, VirtualMachine
 
@@ -79,20 +79,18 @@ def create_workflow():
     workflow = pypeliner.workflow.Workflow()
 
     bcl_directory = args.get("bcl", None)
-    fastq_directories = args.get("fastq", [])
+    fastq_directories = args.get("fastqs", [])
     aggregate = args.get("aggregate_mlibs", list())
     libbase = args.get("lib_base", None)
     combine_assign = args.get("combine",[])
     prefix = args.get("prefix","./")
-    output = args.get("out","./")
+    output = args.get("out","/jobs/{}".format(prefix))
     recipe = args.get("recipe","basic")
-    spin_up = args.get("vm",None)
 
-    if spin_up != None:
-        VirtualMachine()
 
     results = Results(output)
     runner  = PrimaryRun(workflow, prefix, output)
+
 
     """
     Aggregating Libraries
@@ -108,21 +106,21 @@ def create_workflow():
     """
     tenx_analysis = args.get("tenx", None)
 
-    if args['primary']:
-        # fastqs        = runner.pull_fastqs()
-        # bcls          = runner.pull_bcls()
-        tenx_analysis = runner.pull_tenx()
-        print(tenx_analysis)
 
     bcls     = runner.set_bcl(bcl_directory)
     fastqs   = runner.set_fastq(fastq_directories)
     workflow = runner.get_workflow()
 
+    tenx_analysis = args.get("tenx",None)
+
+    if fastqs != []:
+        tenx_analysis = os.path.join(config.jobpath,prefix,"outs")
 
     rdata = args.get("rdata", None)
 
     secondary_analysis  = SecondaryAnalysis(workflow, prefix, output)
     tenx = TenxAnalysis(tenx_analysis)
+
 
     """
     QC
@@ -193,9 +191,7 @@ def create_workflow():
     SCVis
     """
     if config.run_scvis:
-        secondary_analysis.run_scviz(config.perplexity, 2)
-        secondary_analysis.run_scviz(config.perplexity, 10)
-        secondary_analysis.run_scviz(config.perplexity, 50)
+        secondary_analysis.run_scviz(config.perplexity, config.components)
 
 
     """
@@ -207,47 +203,45 @@ def create_workflow():
 
 
     if config.plot_scvis:
-
-        template = os.path.join(output,"scvis/5_50/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=50)
+        embedding_file = "{0}_{1}/perplexity_{0}_regularizer_0.001_batch_size_512_learning_rate_0.01_latent_dimension_2_activation_ELU_seed_1_iter_3000.tsv".format(config.perplexity, config.components)
+        path = secondary_analysis.plot_scvis_by_cluster(tenx_analysis, embedding_file, pcs=config.components)
         path = os.path.join(output, path)
-        results.add_plot(path, "SCVis by Cluster (Dim 50)")
+        results.add_plot(path, "SCVis by Cluster")
 
 
-        if os.path.exists(secondary_analysis.cell_assign_fit):
-            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=50)
-            results.add_plot(path, "SCVIS (Dim 50) by Cell Type")
+        if os.path.exists(config.run_cellassign):
+            path = secondary_analysis.plot_scvis_by_cell_type(embedding_file, pcs=config.components)
+            results.add_plot(path, "SCVIS by Cell Type")
 
 
     """
     Cluster Analysis
     """
     if config.clustering:
-        path = secondary_analysis.plot_pca_by_cluster(tenx_analysis, pcs=50)
+        path = secondary_analysis.plot_pca_by_cluster(tenx_analysis, pcs=config.components)
         results.add_plot(path, "PCA by Cluster")
 
-        path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, pcs=50)
+        path = secondary_analysis.plot_tsne_by_cluster(tenx_analysis, pcs=config.components)
         results.add_plot(path, "TSNE by Cluster")
 
-        path = secondary_analysis.plot_umap_by_cluster(tenx_analysis, pcs=50)
+        path = secondary_analysis.plot_umap_by_cluster(tenx_analysis, pcs=config.components)
         results.add_plot(path, "UMAP by Cluster")
 
-        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="PCA", pcs=50)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="PCA", pcs=config.components)
 
         pca_cluster_markers = glob.glob("figures/expression/*pca*png")
         for png in pca_cluster_markers:
             title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
             results.add_plot(png,title)
 
-        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="TSNE", pcs=50)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="TSNE", pcs=config.components)
 
         pca_cluster_markers = glob.glob("figures/expression/*tsne*png")
         for png in pca_cluster_markers:
             title = png.split("/")[-1].replace(".png","").replace("counts","gene markers").upper().replace("_","")
             results.add_plot(png,title)
 
-        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="UMAP", pcs=50)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="UMAP", pcs=config.components)
 
         pca_cluster_markers = glob.glob("figures/expression/*umap*png")
         for png in pca_cluster_markers:
@@ -255,9 +249,8 @@ def create_workflow():
             results.add_plot(png,title)
 
 
-        template = os.path.join(output,"scvis/5_50/*0.tsv")
-        embedding_file = glob.glob(template)[0]
-        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=50, embedding_file=embedding_file)
+        embedding_file = "{0}_{1}/perplexity_{0}_regularizer_0.001_batch_size_512_learning_rate_0.01_latent_dimension_2_activation_ELU_seed_1_iter_3000.tsv".format(config.perplexity, config.components)
+        secondary_analysis.plot_cluster_markers(tenx_analysis, rep="SCVIS", pcs=config.components, embedding_file=embedding_file)
 
         pca_cluster_markers = glob.glob("figures/expression/*scvis_5_50*png")
         for png in pca_cluster_markers:
@@ -287,7 +280,14 @@ def create_workflow():
             )
         )
 
-
+    if config.report:
+        workflow.transform (
+            name = "{}_finalize".format(prefix),
+            func = exportFinalize,
+            args = (
+                results,
+            )
+        )
 
     workflow = secondary_analysis.get_workflow()
     return workflow

@@ -4,6 +4,10 @@ import glob
 import collections
 import shutil
 
+from utils.cloud import FastqDataStorage
+
+
+
 class SampleSheet(object):
 
     def __init__(self, filename = None, delim=","):
@@ -30,9 +34,14 @@ class SampleSheet(object):
 
 class FastQDirectory(object):
 
-    def __init__(self, directory, prefix, output):
+    def __init__(self, directory, prefix, output, datapath=None):
+        fastqdir = os.path.join(datapath, directory)
+        if not os.path.exists(fastqdir):
+            self.storage = FastqDataStorage(prefix)
+            self.storage.set_data_path(datapath)
+            directory = self.storage.download_fastqs()
         self.path = directory
-        self.id = "run_{}_lsf".format(prefix)
+        self.id = prefix
         self.samples = self.get_samples(directory)
         self.output = output
         self.results = os.path.join(output, "{}/outs/".format(self.id))
@@ -73,6 +82,8 @@ class FastQDirectory(object):
 
     def check_status(self):
         filtered_matrices = os.path.join(self.results, "filtered_gene_bc_matrices_h5.h5")
-        print(filtered_matrices)
         self.completed = os.path.exists(filtered_matrices)
+        if not self.completed:
+            filtered_matrices = os.path.join(self.results, "filtered_feature_bc_matrix_h5.h5")
+            self.completed = os.path.exists(filtered_matrices)
         return self.completed

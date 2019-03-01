@@ -4,8 +4,9 @@ import random
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
 
-from utils import config
-from utils import cloud
+from utils.config import Configuration
+
+config = Configuration()
 
 class CellRanger(object):
 
@@ -67,8 +68,6 @@ class CellRanger(object):
         args["id"] = "run_{}".format(prefix)
         args["csv"] = csv
         args["normalize"] = "none"
-        args["localmem"] = "196"
-        args["localcores"] = "64"
         cmd = CellRanger.cmd("aggr",args)
         subprocess.call(cmd)
 
@@ -79,10 +78,11 @@ class CellRanger(object):
         args["id"] = "_".join([fastq.id for fastq in fastqs])
         paths = [fastq.path for fastq in fastqs]
         args["fastqs"] = ",".join(paths)
-        args["sample"] = ",".join([fastq.samples.sampleid[0] for fastq in fastqs])
+        try:
+            args["sample"] = ",".join([fastq.samples.sampleid[0] for fastq in fastqs])
+        except Exception as e:
+            pass
         args["transcriptome"] = config.reference
-        args["localmem"] = "196"
-        args["localcores"] = "64"
         if config.chemistry is not None:
             args["chemistry"] = config.chemistry
         cmd = CellRanger.cmd("count",args)

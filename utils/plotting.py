@@ -138,6 +138,7 @@ def pca_by_cell_type(rdata, cell_assign_fit, prefix):
 
 def tsne_by_cluster(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     tsne_dims = sce.reducedDims["TSNE"]
@@ -161,18 +162,21 @@ def tsne_by_cluster(rdata, tenx_analysis, prefix, pcs):
 
 def tsne_by_cluster_markers(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     markers = tenx.markers_by_clusters(sce, rep="TSNE", pcs=pcs)
     print(markers.keys())
 
 def pca_by_cluster_markers(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     markers = tenx.markers_by_clusters(sce, rep="PCA", pcs=pcs)
     print(markers.keys())
 
 def cluster_markers(rdata, tenx_analysis, rep, pcs, embedding_file, prefix):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     markers = tenx.markers_by_clusters(sce, rep="PCA", pcs=pcs)
     markers_by_cluster = list(zip(*markers["rank_genes_groups"]["names"]))
@@ -182,6 +186,7 @@ def cluster_markers(rdata, tenx_analysis, rep, pcs, embedding_file, prefix):
 
 def umap_by_cluster_markers(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     markers = tenx.markers_by_clusters(sce, rep="UMAP", pcs=pcs)
     print(markers.keys())
@@ -189,6 +194,7 @@ def umap_by_cluster_markers(rdata, tenx_analysis, prefix, pcs):
 def scvis_by_cluster_markers(rdata, tenx_analysis, prefix, pcs, embedding_file):
     try:
         tenx = TenxAnalysis(tenx_analysis)
+        tenx.load()
         sce = SingleCellExperiment.fromRData(rdata)
         cluster_labels = tenx.markers_by_clusters(sce, rep="SCVIS", pcs=pcs, embedding_file=embedding_file)
     except Exception as e:
@@ -196,6 +202,7 @@ def scvis_by_cluster_markers(rdata, tenx_analysis, prefix, pcs, embedding_file):
 
 def pca_by_cluster(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     tsne_dims = sce.getReducedDims("PCA",n=pcs)
@@ -224,6 +231,7 @@ def pca_by_cluster(rdata, tenx_analysis, prefix, pcs):
 
 def scvis_by_cluster(rdata, tenx_analysis, prefix, pcs, embedding_file):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     rows = open(embedding_file,"r").read().splitlines()
@@ -252,6 +260,7 @@ def scvis_by_cluster(rdata, tenx_analysis, prefix, pcs, embedding_file):
 
 def umap_by_cluster(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     tsne_dims = sce.reducedDims["UMAP"]
@@ -275,6 +284,7 @@ def umap_by_cluster(rdata, tenx_analysis, prefix, pcs):
 
 def umap_by_gene(rdata, gene, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     tsne_dims = sce.reducedDims["UMAP"]
     barcodes = sce.colData["Barcode"]
@@ -301,6 +311,7 @@ def umap_by_gene(rdata, gene, prefix, pcs):
 
 def plot_by_genes(rdata, tenx_analysis, genes, prefix, rep, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     tsne_dims = sce.getReducedDims(rep)
     barcodes = sce.colData["Barcode"]
@@ -381,6 +392,7 @@ def plot_by_markers(rdata, tenx_analysis, genes, prefix, rep, pcs, embedding_fil
 
 def pca_by_gene(rdata, genes, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     tsne_dims = sce.getReducedDims("PCA",n=pcs)
     barcodes = sce.colData["Barcode"]
@@ -408,6 +420,7 @@ def pca_by_gene(rdata, genes, prefix, pcs):
 
 def cell_type_by_cluster(rdata, cell_assign_fit, tenx_analysis, prefix):
     tenx = TenxAnalysis(tenx_analysis)
+    tenx.load()
     fit = pickle.load(open(cell_assign_fit,"rb"))
     cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
     sce = SingleCellExperiment.fromRData(rdata)

@@ -3,16 +3,11 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
 import os, uuid, sys
 from azure.storage.blob import BlockBlobService, PublicAccess
-from utils.config import *
 import subprocess
 import json
 import tarfile
 import shutil
 import gzip
-
-
-os.environ["AZURE_STORAGE_ACCOUNT"] = "singlecelldata"
-os.environ["AZURE_STORAGE_KEY"] = "436b89a7-3b73-4644-a97b-949c4d0f19f5"
 
 class ResultsInterface(object):
 
@@ -86,37 +81,50 @@ class FastqDataStorage(object):
         self.storage_account = "scrnadata"
         self.container = "rnaseq"
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
-        self.tenx_path = None
-        self.cache = ".cache"
-        try:
-            os.makedirs(self.cache)
-        except Exception as e:
-            pass
+
+    def set_data_path(self, path):
+        self.datapath = path
 
     def download_fastqs(self):
         fastqs = self.block_blob_service.list_blobs(self.container)
         for fastq in fastqs:
-            print (fastq.name)
-        # cmd = "az storage blob list --container-name  --account-name scrnadata --auth-mode login".format(self.fastq_container)
-        # json_dump = subprocess.check_output(cmd.split())
-        # blobs = json.loads(json_dump)
-        # for blob in blobs:
-        #     if blob["name"].startswith(self.sampleid):
-        #         print("Downloading {}...".format(blob["name"]))
-        #         blob_name = os.path.split(blob["name"])[1]
-        #         local = os.path.join(self.datapath,blob_name)
-        #         if not os.path.exists(local):
-        #             cmd = "az storage blob download -n {blob} -f {path} --account-name scrnadata --container-name fastqs --auth-mode login".format(blob=blob_name, path=local)
-        #             subprocess.call(cmd.split())
-        # return self.datapath
+            if len(fastq.name.split("/")) != 2: continue
+            sample, fastqname = fastq.name.split("/")
+            if sample == self.sampleid:
+                local = os.path.join(self.datapath, fastqname)
+                if not os.path.exists(local):
+                    self.block_blob_service.get_blob_to_path(self.container, fastq.name, local)
+        return self.datapath
 
+class ReferenceDataStorage(object):
+
+    def __init__(self,build, referencepath):
+        self.sampleid = build
+        self.storage_account = "scrnadata"
+        self.container = "reference"
+        self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
+        self.reference = os.path.join(referencepath, build)
+        self.build = build
+        self.referencepath = referencepath
+
+    def unpack(self,path):
+        tar = tarfile.open(path)
+        tar.extractall(path=self.referencepath)
+        tar.close()
+        os.rename("./outs",os.path.join(self.cache,self.sampleid))
+
+
+    def download(self):
+        if not os.path.exists(self.reference):
+            local = os.path.join(self.referencepath, "{}.tar.gz".format(self.build))
+            self.block_blob_service.get_blob_to_path(self.container, "{}.tar.gz".format(self.build), local)
+            self.extract(local)
+        return self.reference
 
 
 class VirtualMachine(object):
 
     def __init__(self):
-        login = "az login -u nickceglia@gmail.com -p Aphahb_666"
-        subprocess.call(login.split())
         compute_client = get_client_from_cli_profile(ComputeManagementClient)
         network_client = get_client_from_cli_profile(NetworkManagementClient)
         nic = network_client.network_interfaces.get(GROUP_NAME, NIC_NAME)

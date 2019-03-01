@@ -19,15 +19,20 @@ config = Configuration()
 
 class TenxAnalysis(object):
 
-    def __init__(self, directory, cloud=False):
-        if not os.path.exists(directory):
-            self.sample = directory
+    def __init__(self, directory):
+        self.loaded = False
+        self.directory = directory
+        self.path = directory
+
+    def load(self):
+        if not os.path.exists(self.directory):
+            self.sample = self.directory
             if not os.path.exists(".cache/{}".format(self.sample)):
                 cloud_storage = TenxDataStorage(self.sample)
-                directory = cloud_storage.download()
+                self.directory = cloud_storage.download()
             else:
-                directory = ".cache/{}".format(self.sample)
-        self.path = directory
+                self.directory = ".cache/{}".format(self.sample)
+        self.path = self.directory
         v3_path_raw = self.raw_gene_bc_matrices = os.path.join(self.path, 'raw_feature_bc_matrix')
         v2_path_raw = self.raw_gene_bc_matrices = os.path.join(self.path, 'raw_gene_bc_matrices')
         if os.path.exists(v3_path_raw):
@@ -82,25 +87,25 @@ class TenxAnalysis(object):
         def check_and_decompress(gzipped,flat):
             if os.path.exists(gzipped) and not os.path.exists(flat):
                 self.decompress(gzipped, flat)
-        
+
         filtered = self.filtered_matrices()
         self.gzipped_filtered_barcodes = os.path.join(filtered, "barcodes.tsv.gz")
         self.filtered_barcodes = self.gzipped_filtered_barcodes.replace(".gz","")
         check_and_decompress(self.gzipped_filtered_barcodes,self.filtered_barcodes)
         self.gzipped_filtered_matrices = os.path.join(filtered, "matrix.mtx.gz")
-        self.filtered_matrices = self.gzipped_filtered_matrices.replace(".gz","")
-        check_and_decompress(self.gzipped_filtered_matrices,self.filtered_matrices)
+        self._filtered_matrices = self.gzipped_filtered_matrices.replace(".gz","")
+        check_and_decompress(self.gzipped_filtered_matrices,self._filtered_matrices)
         self.gzipped_filtered_genes = os.path.join(filtered, "features.tsv.gz")
         self.filtered_genes = self.gzipped_filtered_genes.replace("features","genes").replace(".gz","")
         check_and_decompress(self.gzipped_filtered_genes,self.filtered_genes)
-        
+
         raw = self.raw_matrices()
         self.gzipped_raw_barcodes = os.path.join(raw, "barcodes.tsv.gz")
         self.raw_barcodes = self.gzipped_raw_barcodes.replace(".gz","")
         check_and_decompress(self.gzipped_raw_barcodes,self.raw_barcodes)
         self.gzipped_raw_matrices = os.path.join(raw, "matrix.mtx.gz")
-        self.raw_matrices = self.gzipped_raw_matrices.replace(".gz","")
-        check_and_decompress(self.gzipped_raw_matrices,self.raw_matrices)
+        self._raw_matrices = self.gzipped_raw_matrices.replace(".gz","")
+        check_and_decompress(self.gzipped_raw_matrices,self._raw_matrices)
         self.gzipped_raw_genes = os.path.join(raw, "features.tsv.gz")
         self.raw_genes = self.gzipped_raw_genes.replace("features","genes").replace(".gz","")
         check_and_decompress(self.gzipped_raw_genes,self.raw_genes)
@@ -108,7 +113,7 @@ class TenxAnalysis(object):
     @property
     def chemistry(self):
         return self._chemistry
-    
+
     @chemistry.getter
     def chemistry(self):
         rows = open(self.summary,"r").read().splitlines()
@@ -117,11 +122,11 @@ class TenxAnalysis(object):
                 break
         chem = rows[i+1].strip().replace("<td>","").replace("</td>","")
         return chem
-        
+
     @property
     def metrics(self):
         return self._metrics
-    
+
     @metrics.getter
     def metrics(self):
         rows = open(self.metrics_summary,"r").read().splitlines()
@@ -149,8 +154,7 @@ class TenxAnalysis(object):
             tar.add(self.path, arcname=os.path.basename(self.path))
         with tarfile.open(self.bamtarball, "w:gz") as tar:
             tar.add(bamdir, arcname=os.path.basename(bamdir))
-            
-            
+
     def filtered_sce(self):
         return TenX.read10xCountsFiltered(tenx,rdata)
 
@@ -188,11 +192,13 @@ class TenxAnalysis(object):
         genes_file = os.path.join(self.filtered_matrices(),"genes.tsv")
         if as_list:
             return [row.split()[0] for row in open(genes_file,"r").read().splitlines()]
+
         return dict([row.split() for row in open(genes_file,"r").read().splitlines()])
 
     def summary(self):
         web_summary = os.path.join(self.path, "web_summary.html")
         return web_summary
+
 
     def get_genes(self, sce):
         _transcripts = sce.rowData["Symbol"]
