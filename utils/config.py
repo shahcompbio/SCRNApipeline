@@ -21,13 +21,17 @@ class Configuration(object):
         self.build = None
         self.chemistry = "auto"
         self.qc_type = "tenx_filtered"
+        self.low_counts_genes_threshold = 4
+        self.stds = 6
         overrides = yaml_configuration()
         if overrides != None:
             for attr, value in overrides.items():
                 setattr(self, attr, value)
-        refobj = ReferenceDataStorage(self.build, self.referencepath)
-        self.reference = refobj.download()
-        self.genes_gtf = os.path.join(self.reference, "genes/genes.gtf")
+        if self.reference is None and (self.build != None and self.reference != None):
+            refobj = ReferenceDataStorage(self.build, self.referencepath)
+            self.reference = refobj.download()
+        if self.reference is not None:
+            self.genes_gtf = os.path.join(self.reference, "genes/genes.gtf")
 
 VM_REFERENCE = {
     'linux': {

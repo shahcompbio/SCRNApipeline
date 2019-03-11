@@ -103,7 +103,7 @@ def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
     ax.set_title("TSNE - Cell Type - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/tsne_by_cell_type.png")
+    plt.savefig("tsne_by_cell_type_{}.png".format(prefix))
 
 def pca_by_cell_type(rdata, cell_assign_fit, prefix):
     sce = SingleCellExperiment.fromRData(rdata)

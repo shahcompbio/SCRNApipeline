@@ -23,16 +23,19 @@ class ResultsInterface(object):
         json_dump = subprocess.check_output(cmd.split())
         blobs = json.loads(json_dump)
         for blob in blobs:
-            result = DataStorage(blob["name"])
-            result.download_tenx(path=self.dir, version=version)
+            if "patient1" not in blob["name"]: continue
+            result = TenxDataStorage(blob["name"], version=version)
+            result.download()
             self.results.append(result)
+
 
 class TenxDataStorage(object):
 
     def __init__(self, sampleid, version="v3"):
-        self.sampleid = sampleid
+        self.sampleid = sampleid.replace(".tar.gz","")
         self.storage_account = "scrnadata"
         self.container = "cellranger{}".format(version)
+        self.rdatacontainer = "rawrdata{}".format(version)
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
         self.tenx_path = None
         self.cache = ".cache"
@@ -40,6 +43,13 @@ class TenxDataStorage(object):
             os.makedirs(self.cache)
         except Exception as e:
             pass
+
+    def rdata(self):
+        local = ".cache/{}.rdata".format(self.sampleid)
+        raw = "{}.rdata".format(self.sampleid)
+        if not os.path.exists(local):
+            self.block_blob_service.get_blob_to_path(self.rdatacontainer, raw, local)
+        return local
 
     def upload_cellranger(self, tenx):
         bam_tarball = tenx.bam_tarball()
@@ -54,10 +64,10 @@ class TenxDataStorage(object):
 
     def unpack(self,path):
         tar = tarfile.open(path)
-        tar.extractall()
+        tar.extractall(".cache")
         tar.close()
-        os.rename("./outs",os.path.join(self.cache,self.sampleid))
-
+        assert os.path.exists(".cache/outs"), "Failed to download."
+        os.rename(".cache/outs",os.path.join(self.cache,self.sampleid))
 
 
     def download(self):

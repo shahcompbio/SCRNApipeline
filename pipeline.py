@@ -81,8 +81,9 @@ def create_workflow():
     bcl_directory = args.get("bcl", None)
     fastq_directories = args.get("fastqs", [])
     aggregate = args.get("aggregate_mlibs", list())
+    agg_type = args.get("agg_method", "scanorama")
     libbase = args.get("lib_base", None)
-    combine_assign = args.get("combine",[])
+    additional = args.get("additional",[])
     prefix = config.prefix
     output = config.jobpath
     recipe = args.get("recipe","basic")
@@ -105,6 +106,9 @@ def create_workflow():
         if agg_type == "tenx":
             runner.aggregate_libraries_tenx(aggregate, libbase)
             args["tenx"] = os.path.join(output,"run_{}/outs".format(prefix))
+        if agg_type == "scanorama":
+            runner.aggregate_libraries_scanorama()
+
 
     """
     Setup
@@ -156,6 +160,15 @@ def create_workflow():
 
     results.add_cellassign_pkl(secondary_analysis.cell_assign_fit)
     results.add_cellassign_raw(secondary_analysis.cell_assign_rdata)
+
+    """
+    Differential Expression
+    """
+    if config.run_de:
+        other_samples = []
+        for other_sample in compare:
+            secondary_analysis.run_de(other_sample)
+
 
     """
     CellAssign

@@ -147,6 +147,7 @@ class SecondaryAnalysis(object):
         self.cell_assign_rdata = os.path.join(self.output, "rdata/cell_assign_fit.rdata")
         self.clone_align_fit = os.path.join(self.output, "rdata/clone_align_fit.rdata")
         self.cell_types_fig = os.path.join(self.output,"figures/cell_types.png")
+        self.other_rdata = []
 
 
     def set_rdata(self, rdata):
@@ -173,6 +174,17 @@ class SecondaryAnalysis(object):
                 pypeliner.managed.OutputFile(self.raw_matrices_sce)
             )
         )
+
+
+    def run_scanorama(self, samples):
+        self.workflow.transform (
+            name = "scanorama",
+            args = Scanorama.integrate_and_correct,
+            args = (
+                samples
+            )
+        )
+
 
     def run_scater(self):
         self.scater_workflow = ScaterCode(self.output)

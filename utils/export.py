@@ -56,10 +56,6 @@ def exportMD(results):
     output.write("## Quality Control\n")
     code = open(results.script,"r").read()
 
-    # output.write("### FastQC\n")
-    # for summary in results.qc_reports():
-    #     output.write(" - [{}]({})\n".format(summary, summary))
-
     output.write("## Analysis\n")
     for plot in results.plots:
         output.write("\n### {}\n".format(plot["header"]))
@@ -247,11 +243,12 @@ class ScaterCode(object):
             output.write("plotHighestExprs(sce, exprs_values = 'counts', feature_names_to_plot= 'Symbol')\n")
 
     def mean_variance_trend(self, output):
-        output.write("new.trend <- makeTechTrend(x=sce)\n")
-        output.write("fit <- trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))\n")
-        output.write("plot(fit$mean, fit$var, pch=16)\n")
-        output.write("curve(fit$trend(x), col='dodgerblue', add=TRUE)\n")
-        output.write("curve(new.trend(x), col='red', add=TRUE)\n")
+        pass
+        # output.write("new.trend <- makeTechTrend(x=sce)\n")
+        # output.write("fit <- trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))\n")
+        # output.write("plot(fit$mean, fit$var, pch=16)\n")
+        # output.write("curve(fit$trend(x), col='dodgerblue', add=TRUE)\n")
+        # output.write("curve(new.trend(x), col='red', add=TRUE)\n")
 
     def plot_qc(self,output, log=False):
         if not log:

@@ -94,7 +94,8 @@ class CellAssign(object):
 
     @staticmethod
     def run_em(tenx, rdata, filename, prefix, rho_matrix, additional, assay="counts", symbol="Symbol", filter_cells=True, filter_transcripts=True, run_cmd=True, run_process=False):
-        tenx = TenxAnalysis(tenx)
+        # tenx = TenxAnalysis(tenx)
+        # tenx.load()
         sce = SingleCellExperiment.fromRData(rdata)
         print("Running EM.")
         if additional is not None:
@@ -107,10 +108,13 @@ class CellAssign(object):
             _genes = tenx.get_genes(SingleCellExperiment.fromRData(nrdata))
             genes = genes.intersection(set(_genes))
         genes = list(genes)
+        print(len(genes), "Genes")
         rho = GeneMarkerMatrix(rho_matrix)
         genes = set(rho.genes).intersection(set(genes))
+        print("loading..")
         matrix_t, barcodes = CellAssign.load(tenx, rdata, assay, symbol, filter_cells, filter_transcripts, genes)
         if additional is not None:
+            print("loading an additional...")
             for sce in additional:
                 _matrix_t, _barcodes = CellAssign.load(tenx, sce, assay, symbol, filter_cells, filter_transcripts, genes)
                 assert _matrix_t.shape[0] == matrix_t.shape[0], "Stacked Matrices have differing dimensions, gene symbol issue."
@@ -131,9 +135,9 @@ class CellAssign(object):
             robjects.r("saveRDS(cell_assign_fit, file='rdata/cell_assign_fit.rdata')".format(prefix))
         else:
             print("Calling CMD Cell Assign.")
-            if not os.path.exists("rdata/cell_assign_fit.rdata"):
-                CellAssign.run_command_line(matrix, rho_binary_matrix, s)
-            fit = r.readRDS("rdata/cell_assign_fit.rdata")
+            #if not os.path.exists("rdata/cell_assign_fit.rdata"):
+            #CellAssign.run_command_line(matrix, rho_binary_matrix, s)
+            fit = r.readRDS("rdata/cell_assign_fit_post_4.rdata")
         pyfit = dict(zip(fit.names, list(fit)))
         pyfit["Barcode"] = barcodes
         conversion = dict(zip(sorted(list(set(pyfit["cell_type"]))),rho.celltypes()))
@@ -151,7 +155,8 @@ class CellAssign(object):
         gene_expression_data <- readRDS("./rdata/input_matrix.rdata")
         rho <- readRDS("./rdata/rho.rdata")
         s <- readRDS("./rdata/factors.rdata")
-        cas <- cellassign_em(exprs_obj = gene_expression_data, rho = rho, s = s)
-        saveRDS(cas,"./rdata/cell_assign_fit.rdata")
+        library(tensorflow)
+        cas <- cellassign(exprs_obj = gene_expression_data, marker_gene_info = rho, s = s)
+        saveRDS(cas,"./rdata/cell_assign_fit_pre_6.rdata")
         """)
         script.close()

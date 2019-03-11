@@ -5,6 +5,7 @@ import scanpy.api as sc
 from sklearn import cluster
 import pandas
 import subprocess
+from software.tenx import TenX
 from utils.config import Configuration
 from utils.cloud import TenxDataStorage
 import matplotlib.pyplot as plt
@@ -13,7 +14,9 @@ import shutil
 import gzip
 import tarfile
 import pyparsing as pp
+import pickle
 from interface.singlecellexperiment import SingleCellExperiment
+from utils.export import ScaterCode
 
 config = Configuration()
 
@@ -72,11 +75,11 @@ class TenxAnalysis(object):
         self.summary = os.path.join(self.path,"web_summary.html")
         self.metrics_summary = os.path.join(self.path, "metrics_summary.csv")
         self.top_level = "/".join(self.path.split("/")[:-3])
-        self.extract()
-        for attr, value in self.metrics.items():
-            attr = "_".join(attr.split()).lower()
-            value = value.replace('"','').replace(",","")
-            setattr(self,attr,value)
+        # self.extract()
+        # for attr, value in self.metrics.items():
+        #     attr = "_".join(attr.split()).lower()
+        #     value = value.replace('"','').replace(",","")
+        #     setattr(self,attr,value)
 
     def decompress(self,gzipped,extracted):
         with gzip.open(gzipped, 'rb') as f_in:
@@ -127,6 +130,22 @@ class TenxAnalysis(object):
     def metrics(self):
         return self._metrics
 
+    def set_integrated(self, integrated):
+        integrated_pkl = os.path.join(self.directory, "integrated.pkl")
+        pickle.dump(integrated,open(integrated_pkl,"wb"))
+
+    def get_integrated(self):
+        integrated_pkl = os.path.join(self.directory, "integrated.pkl")
+        return pickle.load(open(integrated_pkl,"rb"))
+
+    def set_corrected(self, corrected):
+        corrected_pkl = os.path.join(self.directory, "corrected.pkl")
+        pickle.dump(corrected,open(corrected_pkl,"wb"))
+
+    def get_corrected(self, corrected):
+        corrected_pkl = os.path.join(self.directory, "corrected.pkl")
+        return pickle.load(open(corrected_pkl,"rb"))
+
     @metrics.getter
     def metrics(self):
         rows = open(self.metrics_summary,"r").read().splitlines()
@@ -157,6 +176,33 @@ class TenxAnalysis(object):
 
     def filtered_sce(self):
         return TenX.read10xCountsFiltered(tenx,rdata)
+
+    def qcd_adata(self,subset=None):
+        sce = self.qcd_sce()
+        return self.create_scanpy_adata(sce,subset=subset)
+
+    def qcd_sce(self):
+        self.load()
+        baseobj = "sce.rdata"
+        qcdobj = "qcdsce.rdata"
+        rdata = os.path.join(self.directory,baseobj)
+        qcdrdata = os.path.join(self.directory, qcdobj)
+        try:
+            figures = os.path.join(self.directory, "figures")
+            os.makedirs(figures)
+        except Exception as e:
+            pass
+        if not os.path.exists(qcdrdata):
+            TenX.read10xCountsFiltered(self,rdata)
+            rscript = ScaterCode(self.directory).generate_script()
+            cwd = os.getcwd()
+            os.chdir(self.directory)
+            print(os.getcwd())
+            cmd = ["Rscript",os.path.split(rscript)[-1],baseobj,qcdobj]
+            subprocess.call(cmd)
+            os.chdir(cwd)
+        return SingleCellExperiment.fromRData(qcdrdata)
+
 
     def bam_tarball(self):
         return self.bamtarball
@@ -199,23 +245,26 @@ class TenxAnalysis(object):
         web_summary = os.path.join(self.path, "web_summary.html")
         return web_summary
 
+    def molecules_h5(self):
+        return os.path.join(self.path,"molecule_info.h5")
+
 
     def get_genes(self, sce):
-        _transcripts = sce.rowData["Symbol"]
-        try:
-            adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
-        except Exception:
-            adata = sc.read_10x_mtx(self.filtered_matrices())
-        transcripts = []
-        for symbol in _transcripts:
-            if symbol not in adata.var.index:
-                symbol = symbol.replace(".","-")
-                if symbol not in adata.var.index:
-                    symbol = symbol.split("-")
-                    symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
-                    if symbol not in adata.var.index:
-                        symbol = symbol.split(".")[0]
-            transcripts.append(symbol)
+        transcripts = sce.rowData["hgnc_symbol"]
+        # try:
+        #     adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        # except Exception:
+        #     adata = sc.read_10x_mtx(self.filtered_matrices())
+        # transcripts = []
+        # for symbol in _transcripts:
+        #     if symbol not in adata.var.index:
+        #         symbol = symbol.replace(".","-")
+        #         if symbol not in adata.var.index:
+        #             symbol = symbol.split("-")
+        #             symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
+        #             if symbol not in adata.var.index:
+        #                 symbol = symbol.split(".")[0]
+        #     transcripts.append(symbol)
         return transcripts
 
     def gene_map(self, sce, original=False):
@@ -241,7 +290,7 @@ class TenxAnalysis(object):
         return transcripts
 
 
-    def create_scanpy_adata(self, sce, fast_load=True, assay="counts", high_var = False):
+    def create_scanpy_adata(self, sce, fast_load=True, assay="counts", high_var = False, subset=None):
         barcodes = sce.colData["Barcode"]
         _transcripts = sce.rowData["Symbol"]
         try:
@@ -250,7 +299,10 @@ class TenxAnalysis(object):
             adata = sc.read_10x_mtx(self.filtered_matrices())
         adata.var_names_make_unique()
         transcripts = []
+        if subset == None:
+            subset = _transcripts
         for symbol in _transcripts:
+            if symbol not in subset: continue
             if symbol not in adata.var.index:
                 symbol = symbol.replace(".","-")
                 if symbol not in adata.var.index:
