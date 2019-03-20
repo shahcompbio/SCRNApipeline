@@ -82,6 +82,7 @@ class PrimaryRun(object):
         return self.storage.download_tenx()
 
     def set_fastq(self, fastq_directories):
+        print(fastq_directories)
         self.fastq_directories = fastq_directories
         self.fastqs = []
         for fastq_directory in self.fastq_directories:
@@ -179,7 +180,7 @@ class SecondaryAnalysis(object):
     def run_scanorama(self, samples):
         self.workflow.transform (
             name = "scanorama",
-            args = Scanorama.integrate_and_correct,
+            func = Scanorama.integrate_and_correct,
             args = (
                 samples
             )

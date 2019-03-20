@@ -47,8 +47,6 @@ class Scanorama(object):
             integrated = tenx.get_integrated()
             print (integrated[1].shape)
 
-
-
     @staticmethod
     def plot_corrected(tenx, sample="qcd", subset=None):
         adata = tenx.qcd_adata(subset=subset)
@@ -60,8 +58,6 @@ class Scanorama(object):
         plt.figure()
         sc.pl.umap(batch_adata,color="correction",show=False)
         plt.savefig("{}_corrected.png".format(sample))
-
-
 
 
 def main():

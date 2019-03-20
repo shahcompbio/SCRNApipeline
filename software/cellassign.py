@@ -52,7 +52,7 @@ class CellAssign(object):
         if filter_cells:
             _matrix = []
             for row in matrix:
-                if list(map(int, row)).count(0) > 0:
+                if list(map(int, row)).count(0) != 0:
                     _matrix.append(list(row))
             matrix = numpy.array(_matrix)
             _matrix = []
@@ -61,7 +61,7 @@ class CellAssign(object):
             _genes = []
             assert matrix_t.shape[0] == len(genes), "Mismatch Filter Dimensions."
             for gene, col in zip(genes,matrix_t):
-                if list(map(int, row)).count(0) > 0:
+                if list(map(int, col)).count(0) != 0:
                     _matrix.append(list(col))
                     _genes.append(gene)
             genes = _genes
@@ -78,24 +78,23 @@ class CellAssign(object):
         return matrix_t, barcodes
 
     @staticmethod
-    def write_input(matrix, rho, factors):
+    def write_input(matrix, rho, factors, prefix):
         robjects.r.assign("input_matrix",matrix)
-        robjects.r("saveRDS(input_matrix,file='rdata/input_matrix.rdata')")
+        robjects.r("saveRDS(input_matrix,file='{}/input_matrix.rdata')".format(prefix))
         robjects.r.assign("rho",rho)
-        robjects.r("saveRDS(rho,file='rdata/rho.rdata')")
+        robjects.r("saveRDS(rho,file='{}/rho.rdata')".format(prefix))
         robjects.r.assign("s",factors)
-        robjects.r("saveRDS(s,file='rdata/factors.rdata')")
+        robjects.r("saveRDS(s,file='{}/factors.rdata')".format(prefix))
 
     @staticmethod
-    def run_command_line(matrix, rho, factors):
-        CellAssign.write_input(matrix, rho, factors)
-        CellAssign.command()
+    def run_command_line(matrix, rho, factors, prefix):
+        CellAssign.write_input(matrix, rho, factors, prefix)
+        CellAssign.command(prefix)
         subprocess.call(["Rscript","run_cellassign.R"])
 
     @staticmethod
-    def run_em(tenx, rdata, filename, prefix, rho_matrix, additional, assay="counts", symbol="Symbol", filter_cells=True, filter_transcripts=True, run_cmd=True, run_process=False):
-        # tenx = TenxAnalysis(tenx)
-        # tenx.load()
+    def run_em(tenx, rdata, filename, prefix, rho_matrix, additional, assay="counts", symbol="Symbol", filter_cells=True, filter_transcripts=True):
+        if os.path.exists(filename): return
         sce = SingleCellExperiment.fromRData(rdata)
         print("Running EM.")
         if additional is not None:
@@ -125,19 +124,14 @@ class CellAssign(object):
         s = EdgeRInterface.calcNormFactors(matrix_t, method="TMM")
         s = pandas2ri.ri2py(s)
         print("Finished size factors.")
-        rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=False))
+        rho_binary_matrix = numpy.array(rho.matrix(subset=genes,include_other=True))
         print("Building Rho.")
         matrix = numpy.transpose(matrix_t)
         assert matrix.shape[1] == rho_binary_matrix.shape[0], "Dimensions between rho and expression matrix do not match!"
-        if run_process:
-            fit = CellAssignInterface.cellassign_em(exprs_obj = matrix, rho = rho_binary_matrix, s = s)
-            robjects.r.assign("cell_assign_fit", fit)
-            robjects.r("saveRDS(cell_assign_fit, file='rdata/cell_assign_fit.rdata')".format(prefix))
-        else:
-            print("Calling CMD Cell Assign.")
-            #if not os.path.exists("rdata/cell_assign_fit.rdata"):
-            #CellAssign.run_command_line(matrix, rho_binary_matrix, s)
-            fit = r.readRDS("rdata/cell_assign_fit_post_4.rdata")
+        print("Calling CMD Cell Assign.")
+        if not os.path.exists("{}/cell_assign_fit.rdata".format(prefix)):
+            CellAssign.run_command_line(matrix, rho_binary_matrix, s, prefix)
+        fit = r.readRDS("{}/cell_assign_fit.rdata".format(prefix))
         pyfit = dict(zip(fit.names, list(fit)))
         pyfit["Barcode"] = barcodes
         conversion = dict(zip(sorted(list(set(pyfit["cell_type"]))),rho.celltypes()))
@@ -148,15 +142,15 @@ class CellAssign(object):
         pickle.dump(pyfit, open(filename,"wb"))
 
     @staticmethod
-    def command():
+    def command(prefix):
         script = open("run_cellassign.R","w")
         script.write("""
         library(cellassign)
-        gene_expression_data <- readRDS("./rdata/input_matrix.rdata")
-        rho <- readRDS("./rdata/rho.rdata")
-        s <- readRDS("./rdata/factors.rdata")
         library(tensorflow)
+        gene_expression_data <- readRDS("./{0}/input_matrix.rdata")
+        rho <- readRDS("./{0}/rho.rdata")
+        s <- readRDS("./{0}/factors.rdata")
         cas <- cellassign(exprs_obj = gene_expression_data, marker_gene_info = rho, s = s)
-        saveRDS(cas,"./rdata/cell_assign_fit_pre_6.rdata")
-        """)
+        saveRDS(cas,"./{0}/cell_assign_fit.rdata")
+        """.format(prefix))
         script.close()

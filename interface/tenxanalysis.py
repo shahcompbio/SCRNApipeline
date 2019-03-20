@@ -51,7 +51,7 @@ class TenxAnalysis(object):
             self.raw_gene_bc_matrices = v2_path_raw + "_mex"
             self.detected_version = "v2"
         else:
-            raise ValueError("No Matrices folder found -- Check dir name (raw_feature_bc_matrix or raw_gene_bc_matrices)")
+            pass
         v3_path_filtered = os.path.join(self.path, 'filtered_feature_bc_matrix')
         v2_path_filtered = os.path.join(self.path, 'filtered_gene_bc_matrices')
         if os.path.exists(v3_path_filtered):
@@ -75,11 +75,6 @@ class TenxAnalysis(object):
         self.summary = os.path.join(self.path,"web_summary.html")
         self.metrics_summary = os.path.join(self.path, "metrics_summary.csv")
         self.top_level = "/".join(self.path.split("/")[:-3])
-        # self.extract()
-        # for attr, value in self.metrics.items():
-        #     attr = "_".join(attr.split()).lower()
-        #     value = value.replace('"','').replace(",","")
-        #     setattr(self,attr,value)
 
     def decompress(self,gzipped,extracted):
         with gzip.open(gzipped, 'rb') as f_in:
@@ -93,8 +88,8 @@ class TenxAnalysis(object):
 
         filtered = self.filtered_matrices()
         self.gzipped_filtered_barcodes = os.path.join(filtered, "barcodes.tsv.gz")
-        self.filtered_barcodes = self.gzipped_filtered_barcodes.replace(".gz","")
-        check_and_decompress(self.gzipped_filtered_barcodes,self.filtered_barcodes)
+        self._filtered_barcodes = self.gzipped_filtered_barcodes.replace(".gz","")
+        check_and_decompress(self.gzipped_filtered_barcodes,self._filtered_barcodes)
         self.gzipped_filtered_matrices = os.path.join(filtered, "matrix.mtx.gz")
         self._filtered_matrices = self.gzipped_filtered_matrices.replace(".gz","")
         check_and_decompress(self.gzipped_filtered_matrices,self._filtered_matrices)
@@ -182,7 +177,6 @@ class TenxAnalysis(object):
         return self.create_scanpy_adata(sce,subset=subset)
 
     def qcd_sce(self):
-        self.load()
         baseobj = "sce.rdata"
         qcdobj = "qcdsce.rdata"
         rdata = os.path.join(self.directory,baseobj)
@@ -250,22 +244,22 @@ class TenxAnalysis(object):
 
 
     def get_genes(self, sce):
-        transcripts = sce.rowData["hgnc_symbol"]
-        # try:
-        #     adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
-        # except Exception:
-        #     adata = sc.read_10x_mtx(self.filtered_matrices())
-        # transcripts = []
-        # for symbol in _transcripts:
-        #     if symbol not in adata.var.index:
-        #         symbol = symbol.replace(".","-")
-        #         if symbol not in adata.var.index:
-        #             symbol = symbol.split("-")
-        #             symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
-        #             if symbol not in adata.var.index:
-        #                 symbol = symbol.split(".")[0]
-        #     transcripts.append(symbol)
-        return transcripts
+        _transcripts = sce.rowData["hgnc_symbol"]
+        try:
+            adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
+        except Exception:
+            adata = sc.read_10x_mtx(self.filtered_matrices())
+        transcripts = []
+        for symbol in transcripts:
+            if symbol not in adata.var.index:
+                symbol = symbol.replace(".","-")
+                if symbol not in adata.var.index:
+                    symbol = symbol.split("-")
+                    symbol = "-".join(symbol[:-1]) + ".{}".format(symbol[-1])
+                    if symbol not in adata.var.index:
+                        symbol = symbol.split(".")[0]
+            transcripts.append(symbol)
+        return _transcripts
 
     def gene_map(self, sce, original=False):
         _transcripts = sce.rowData["Symbol"]
@@ -292,12 +286,12 @@ class TenxAnalysis(object):
 
     def create_scanpy_adata(self, sce, fast_load=True, assay="counts", high_var = False, subset=None):
         barcodes = sce.colData["Barcode"]
-        _transcripts = sce.rowData["Symbol"]
-        try:
-            adata = sc.read_10x_h5(self.filtered_h5(), genome=config.build)
-        except Exception:
-            adata = sc.read_10x_mtx(self.filtered_matrices())
+        _transcripts = sce.rowData["hgnc_symbol"]
+        adata = sc.read_10x_mtx(self.filtered_matrices(), make_unique=True)
         adata.var_names_make_unique()
+        adata.obs_names_make_unique()
+        print(adata.X)
+        sc.pp.highly_variable_genes(adata, flavor="cell_ranger", subset=True)
         transcripts = []
         if subset == None:
             subset = _transcripts
@@ -317,15 +311,14 @@ class TenxAnalysis(object):
         adata = adata[barcodes,:]
         adata.var_names_make_unique()
         if high_var:
-            var_transcripts = sc.pp.highly_variable_genes(adata, flavor="cell_ranger", inplace=False)
+            var_transcripts = sc.pp.highly_variable_genes(adata, flavor="cell_ranger", inplace=False, n_top_genes=1000, n_bins=100)
             assert len(var_transcripts) == len(adata.var.index)
             var_transcripts = [x[0] for x in zip(adata.var.index, var_transcripts) if x[1][0] == True]
             adata = adata[:,var_transcripts]
-        if not fast_load:
-            sc.tl.pca(adata)
-            sc.pp.neighbors(adata)
-            sc.tl.umap(adata)
-            sc.tl.tsne(adata)
+        adata = sc.tl.pca(adata, copy=True)
+        adata = sc.pp.neighbors(adata, copy=True)
+        adata = sc.tl.umap(adata, copy=True)
+        adata = sc.tl.tsne(adata, copy=True)
         return adata
 
     def get_scvis_dimensions(self, embedding_file):
@@ -339,29 +332,11 @@ class TenxAnalysis(object):
             embedding.append(row)
         return numpy.array(embedding).reshape(2,len(rows))
 
-    def clusters(self, sce, rep=None, pcs=50, embedding_file=None, copy = False):
-        adata = self.create_scanpy_adata(sce, fast_load=True)
-        if rep == None or rep=="PCA":
-            projection = sce.getReducedDims("PCA",n=pcs)
-            adata.obsm["X_pca"] = projection.T
-            sc.pp.neighbors(adata, use_rep="X_pca")
-        elif rep=="TSNE":
-            projection = sce.getReducedDims("TSNE")
-            adata.obsm["X_tsne"] = projection.T
-            sc.pp.neighbors(adata, use_rep="X_tsne")
-        elif rep=="SCVIS":
-            if embedding_file is None:
-                raise AssertionError("scvis requires embedding file.")
-            rows = open(embedding_file,"r").read().splitlines()
-            header = rows.pop(0)
-            embedding = []
-            for row in rows:
-                row = list(map(float, row.split("\t")[1:]))
-                embedding.append(row)
-            counts = numpy.array(embedding)
-            adata.obsm["X_scvis"] = counts
-            sc.pp.neighbors(adata,use_rep="X_scvis")
-        sc.tl.leiden(adata, resolution=config.resolution)
+    def clusters(self, sce, pcs=50, copy = False):
+        adata = self.create_scanpy_adata(sce, fast_load=False, high_var=True)
+        projection = sce.getReducedDims("PCA",n=pcs)
+        adata.obsm["X_pca"] = projection.T
+        sc.tl.leiden(adata, resolution=0.195)
         if not copy:
             return adata.obs["leiden"]
         else:

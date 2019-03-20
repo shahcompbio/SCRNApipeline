@@ -9,6 +9,7 @@ import pickle
 from interface.genemarkermatrix import GeneMarkerMatrix
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.tenxanalysis import TenxAnalysis
+import json
 import scanpy.api as sc
 import numpy
 import collections
@@ -44,7 +45,6 @@ def celltypes(rdata, cell_assign_fit, prefix, output):
     plt.savefig(figure)
 
 def scvis_by_cell_type(rdata, cell_assign_fit, prefix, embedding_file):
-    print("yas")
     fit = pickle.load(open(cell_assign_fit,"rb"))
     sce = SingleCellExperiment.fromRData(rdata)
     barcodes = sce.colData["Barcode"]
@@ -103,7 +103,7 @@ def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
     ax.set_title("TSNE - Cell Type - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("tsne_by_cell_type_{}.png".format(prefix))
+    plt.savefig("{}/tsne_by_cell_type.png".format(prefix))
 
 def pca_by_cell_type(rdata, cell_assign_fit, prefix):
     sce = SingleCellExperiment.fromRData(rdata)
@@ -136,9 +136,7 @@ def pca_by_cell_type(rdata, cell_assign_fit, prefix):
     plt.tight_layout()
     plt.savefig("figures/pca_by_celltype.png")
 
-def tsne_by_cluster(rdata, tenx_analysis, prefix, pcs):
-    tenx = TenxAnalysis(tenx_analysis)
-    tenx.load()
+def tsne_by_cluster(rdata, tenx, prefix, pcs):
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     tsne_dims = sce.reducedDims["TSNE"]
@@ -149,16 +147,28 @@ def tsne_by_cluster(rdata, tenx_analysis, prefix, pcs):
     x = []
     y = []
     clusters = []
+    embedding = dict()
+    labels = dict()
     for barcode, cluster in cluster_labels.items():
         clusters.append("Cluster {}".format(cluster))
         x.append(x_coded[barcode])
         y.append(y_coded[barcode])
+        embedding[barcode] = (x_coded[barcode],y_coded[barcode])
+        labels[barcode] = cluster
+    embedding_str = json.dumps(embedding)
+    output = open("{}/tsne_embedding.json".format(prefix),"w")
+    output.write(embedding_str)
+    output.close()
+    output = open("{}/tsne_clusters.json".format(prefix),"w")
+    clusters_str = json.dumps(labels)
+    output.write(clusters_str)
+    output.close()
     f, ax = plt.subplots(figsize=(10,8))
     sns.scatterplot(x=x, y=y, hue=clusters, alpha=0.85)
     ax.set_title("TSNE - Clusters - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/{}/tsne_by_cluster.png".format(prefix))
+    plt.savefig("{}/tsne_by_cluster.png".format(prefix))
 
 def tsne_by_cluster_markers(rdata, tenx_analysis, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)
@@ -200,9 +210,9 @@ def scvis_by_cluster_markers(rdata, tenx_analysis, prefix, pcs, embedding_file):
     except Exception as e:
         return
 
-def pca_by_cluster(rdata, tenx_analysis, prefix, pcs):
-    tenx = TenxAnalysis(tenx_analysis)
-    tenx.load()
+def pca_by_cluster(rdata, tenx, prefix, pcs):
+    # tenx = TenxAnalysis(tenx_analysis)
+    # tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     tsne_dims = sce.getReducedDims("PCA",n=pcs)
@@ -226,12 +236,12 @@ def pca_by_cluster(rdata, tenx_analysis, prefix, pcs):
     ax.set_title("PCA - Clusters - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/pca_by_cluster.png")
+    plt.savefig("{}/pca_by_cluster.png".format(prefix))
 
 
-def scvis_by_cluster(rdata, tenx_analysis, prefix, pcs, embedding_file):
-    tenx = TenxAnalysis(tenx_analysis)
-    tenx.load()
+def scvis_by_cluster(rdata, tenx, prefix, pcs, embedding_file):
+    # tenx = TenxAnalysis(tenx_analysis)
+    # tenx.load()
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     rows = open(embedding_file,"r").read().splitlines()
@@ -255,12 +265,10 @@ def scvis_by_cluster(rdata, tenx_analysis, prefix, pcs, embedding_file):
     ax.set_title("SCVIS - Clusters - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/svis_by_cluster_{}.png".format(prefix))
+    plt.savefig("{}}/svis_by_cluster.png".format(prefix))
 
 
-def umap_by_cluster(rdata, tenx_analysis, prefix, pcs):
-    tenx = TenxAnalysis(tenx_analysis)
-    tenx.load()
+def umap_by_cluster(rdata, tenx, prefix, pcs):
     sce = SingleCellExperiment.fromRData(rdata)
     cluster_labels = tenx.clusters(sce, pcs=pcs)
     tsne_dims = sce.reducedDims["UMAP"]
@@ -277,10 +285,10 @@ def umap_by_cluster(rdata, tenx_analysis, prefix, pcs):
         y.append(y_coded[barcode])
     f, ax = plt.subplots(figsize=(10,8))
     sns.scatterplot(x=x, y=y, hue=clusters, alpha=0.85)
-    ax.set_title("PCA - Clusters - {}".format(prefix))
+    ax.set_title("UMAP - Clusters - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/umap_by_cluster.png")
+    plt.savefig("{}/umap_by_cluster.png".format(prefix))
 
 def umap_by_gene(rdata, gene, prefix, pcs):
     tenx = TenxAnalysis(tenx_analysis)

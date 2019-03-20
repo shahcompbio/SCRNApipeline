@@ -32,6 +32,8 @@ class Configuration(object):
             self.reference = refobj.download()
         if self.reference is not None:
             self.genes_gtf = os.path.join(self.reference, "genes/genes.gtf")
+        if self.build == None:
+            self.build = "GRCh38"
 
 VM_REFERENCE = {
     'linux': {

@@ -3,6 +3,8 @@ import os
 import glob
 import collections
 import shutil
+import time
+import subprocess
 
 from utils.cloud import FastqDataStorage
 
@@ -35,7 +37,10 @@ class SampleSheet(object):
 class FastQDirectory(object):
 
     def __init__(self, directory, prefix, output, datapath=None):
-        fastqdir = os.path.join(datapath, directory)
+        if datapath is not None:
+            fastqdir = os.path.join(datapath, directory)
+        else:
+            fastqdir = directory
         if not os.path.exists(fastqdir):
             self.storage = FastqDataStorage(prefix)
             self.storage.set_data_path(datapath)
@@ -56,8 +61,11 @@ class FastQDirectory(object):
             sample_sheet += SampleSheet(filename=sheet)
         return sample_sheet
 
-    def get_fastqs(self):
-        return list(glob.glob(os.path.join(self.path,"*.fastq*")))
+    def get_fastqs(self, index=True):
+        fastqs = list(glob.glob(os.path.join(self.path,"*.fastq*")))
+        if not index:
+            fastqs = [fastq for fastq in fastqs if "I1" not in fastq]
+        return fastqs
 
     def has_qc(self):
         dir = os.path.join(self.output,"fastqc")
@@ -87,3 +95,21 @@ class FastQDirectory(object):
             filtered_matrices = os.path.join(self.results, "filtered_feature_bc_matrix_h5.h5")
             self.completed = os.path.exists(filtered_matrices)
         return self.completed
+
+    def concatenate(self,compressed=True):
+        t0=time.time()
+        concatenated = os.path.join(self.output,"{}_cat.fastq.qz".format(self.id))
+        cmd = ["cat"]
+        for fastq in self.get_fastqs(index=False):
+            cmd.append(fastq)
+        cmd.append(">")
+        cmd.append(concatenated)
+        print(" ".join(cmd))
+        subprocess.call(cmd, shell=True)
+        t1=time.time()
+        print(t1-t0, "sec to combine.")
+        if not compressed:
+            subprocess.call(["gunzip","-f",concatenated])
+        t2=time.time()
+        print(t1-t2, "sec to decompress.")
+        return concatenated

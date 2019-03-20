@@ -79,7 +79,7 @@ def create_workflow():
     workflow = pypeliner.workflow.Workflow()
 
     bcl_directory = args.get("bcl", None)
-    fastq_directories = args.get("fastqs", [])
+    fastq_directories = args.get("fastqs")
     aggregate = args.get("aggregate_mlibs", list())
     agg_type = args.get("agg_method", "scanorama")
     libbase = args.get("lib_base", None)
@@ -93,6 +93,9 @@ def create_workflow():
         os.makedirs(cellranger_folder)
     except Exception as e:
         pass
+
+    if fastq_directories == None:
+        fastq_directories = []
 
     results = Results(output)
     runner  = PrimaryRun(workflow, prefix, output)
@@ -167,6 +170,8 @@ def create_workflow():
     if config.run_de:
         other_samples = []
         for other_sample in compare:
+            print("blah")
+            exit(0)
             secondary_analysis.run_de(other_sample)
 
 
