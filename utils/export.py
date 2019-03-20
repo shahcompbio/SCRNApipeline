@@ -1,6 +1,5 @@
 import os
 import subprocess
-from markdown2 import Markdown
 import shutil
 
 from interface.singlecellexperiment import SingleCellExperiment
@@ -62,15 +61,15 @@ def exportMD(results):
         output.write("![{}]({})\n".format(plot["desc"],plot["path"]))
 
     output.close()
-    convertHTML(markdown, results.report_dir)
+    #convertHTML(markdown, results.report_dir)
 
 
-def convertHTML(markdown, report):
-    output = open(os.path.join(report, "{}_results.html".format(config.prefix)),"w")
-    markdowner = Markdown()
-    html = markdowner.convert(open(markdown,"r").read())
-    output.write(html)
-    output.close()
+# def convertHTML(markdown, report):
+#     output = open(os.path.join(report, "{}_results.html".format(config.prefix)),"w")
+#     markdowner = Markdown()
+#     html = markdowner.convert(open(markdown,"r").read())
+#     output.write(html)
+#     output.close()
 
 def exportRMD(fastq, analysis, scater_workflow, prefix, sce, output_path):
     with_code=False
