@@ -142,8 +142,7 @@ plasma_cell_marker_genes = rho["Cytotoxic T cells"]
 
 1. Matrix
 - Count expression (heat) matrix in cells by genes.
-- * Matrix is in a sparse format, if the cell does not have expression for a specific gene, will raise KeyError *
-- * Solve by putting into defaultdict(int) *
+- Matrix is in a sparse format, if the cell does not have expression for a specific gene, will raise KeyError.
 
 ```
 matrix = right_ovary["matrix"]
@@ -173,7 +172,7 @@ expression_subset = dict((gene, counts_by_gene[gene]) for gene in marker_genes i
 ```
 
 4. Clusters
-- Cluster assignments for QC'd cells from leiden algorithm.
+- Cluster assignments for QC'd cells from Leiden algorithm.
 ```
 cluster = right_ovary["clusters"]["AAACCCAAGGCATGCA-1"]
 ```
