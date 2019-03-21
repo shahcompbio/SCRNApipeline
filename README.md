@@ -86,17 +86,19 @@ You can load these and run the pipeline downstream analysis starting from these 
 # SCRNA Viz json
 
 ## Overview
-Found in **scrnaviz** container in **scrnadata** storage account.
+ - Found in **scrnaviz** container in **scrnadata** storage account.
 Right now, just an example. I will figure out how to index patient ID for subsequent runs.
 
-- patient_data.json
+- Download example: *patient_data.tar.gz*
+
+-- patient_data.json
 
 ```
 import json
 data = json.loads(open("patient_data.json","r").read())
 ```
 
-- htmls
+-- *htmls*
 Just a directory of cellranger web summary htmls.
 
 ### Fields
@@ -105,7 +107,7 @@ fields = data.keys()
 ```
 
 1. Sample Names (Sites)
-Samples should start with Sample right now.
+ - Samples should start with "*Sample*" right now.
 ```
 samples = list(filter(lambda x: "Sample" in x, fields))
 right_ovary = data["Sample_ROVCD45POS_IGO_09443_B_1"]
@@ -114,7 +116,7 @@ right_ovary_genes = right_ovary["genedata"]["Symbol"] # All genes for sample
 ```
 
 2. Statistics
-These values were taken from the web summary or qc R scripts.  They are currently strings :(.
+ - These values were taken from the web summary or qc R scripts.  They are currently strings :(.
 They are all fairly important, try to compare all values across sites.
 ```
 stats_by_samples = data["statistics"]
@@ -127,8 +129,8 @@ saturation = right_ovary_stats["Sequencing Saturation"]
 ```
 
 3. Cellassign Rho
-This includes all the expected cell types and the marker genes associated.
-Will probably want to combine celltype with marker gene expression (heat).
+- This includes all the expected cell types and the marker genes associated.
+- Will probably want to combine celltype with marker gene expression (heat).
 ```
 rho = data["rho"]
 cell_types = list(rho.keys())
@@ -139,9 +141,9 @@ plasma_cell_marker_genes = rho["Cytotoxic T cells"]
 ### Sample (Site) specific data
 
 1. Matrix
-Count expression (heat) matrix in cells by genes.
-* Matrix is in a sparse format, if the cell does not have expression for a specific gene, will raise KeyError *
-* Solve by putting into defaultdict(int) *
+- Count expression (heat) matrix in cells by genes.
+- * Matrix is in a sparse format, if the cell does not have expression for a specific gene, will raise KeyError *
+- * Solve by putting into defaultdict(int) *
 
 ```
 matrix = right_ovary["matrix"]
@@ -153,14 +155,14 @@ except KeyError:
 ```
 
 2. tSNE
-Coordinates for QC'd cells (Mito10).
+- Coordinates for QC'd cells (Mito10).
 ```
 tsne = right_ovary["tsne"]
 x_coordinate, y_coordinate = tsne["AAACCCAAGGCATGCA-1"]
 ```
 
 3. Cell Types
-Cell types for QC'd cells (Mito10).
+- Cell types for QC'd cells (Mito10).
 ```
 celltype = right_ovary["cellassign"]["AAACCCAAGGCATGCA-1"]
 assert celltype in celltypes, "This celltype should be expected in the rho matrix."
@@ -171,7 +173,7 @@ expression_subset = dict((gene, counts_by_gene[gene]) for gene in marker_genes i
 ```
 
 4. Clusters
-Cluster assignments for QC'd cells from leiden algorithm.
+- Cluster assignments for QC'd cells from leiden algorithm.
 ```
 cluster = right_ovary["clusters"]["AAACCCAAGGCATGCA-1"]
 ```
@@ -188,9 +190,9 @@ total_counts_ribo_to_be_binned = celldata["total_counts_ribo"]
 ```
 
 
-Things to add:
+##### Things to add:
 1) Umap and scvis
 2) ... will think more ...
 
-Things to fix:
+##### Things to fix:
 1) Create issues as needed to fix the format of the data.
