@@ -87,6 +87,7 @@ class TenxAnalysis(object):
                 self.decompress(gzipped, flat)
 
         filtered = self.filtered_matrices()
+        print("filtered")
         self.gzipped_filtered_barcodes = os.path.join(filtered, "barcodes.tsv.gz")
         self._filtered_barcodes = self.gzipped_filtered_barcodes.replace(".gz","")
         check_and_decompress(self.gzipped_filtered_barcodes,self._filtered_barcodes)
