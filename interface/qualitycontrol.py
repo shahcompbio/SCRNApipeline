@@ -37,7 +37,7 @@ class QualityControl(object):
         if not os.path.exists(self.plots):
             os.makedirs(self.plots)
         self.storage_account = "scrnadata"
-        self.container = "rdataraw{}".format(self.tenx.detected_version)
+        self.container = "rdatamouse{}".format(self.tenx.detected_version)
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
 
     def filter(self, mito=10):
