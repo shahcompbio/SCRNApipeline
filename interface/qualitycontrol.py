@@ -19,7 +19,7 @@ class QualityControl(object):
         if not os.path.exists(self.cache):
             os.makedirs(self.cache)
         self.script = os.path.join(self.cache,"qc.R")
-        self.build = os.path.join(self.cache,"build.R")
+        self.construct = os.path.join(self.cache,"build.R")
         self.figures = os.path.join(self.cache,"build.R")
         self.plots = os.path.join(self.tenx.path, "qc_figures")
         if not os.path.exists(self.script):
@@ -28,8 +28,8 @@ class QualityControl(object):
             output.write(filter)
             output.write(save)
             output.close()
-        if not os.path.exists(self.build):
-            output = open(self.script,"w")
+        if not os.path.exists(self.construct):
+            output = open(self.construct,"w")
             output.write(script)
             output.write(save)
             output.close()
@@ -50,9 +50,8 @@ class QualityControl(object):
 
     def build(self):
         mat = self.tenx.filtered_matrices()
-        print(" ".join(["Rscript", self.build, mat, self.sce]))
-        exit(0)
-        subprocess.call(["Rscript", self.build, mat, self.sce])
+        print(" ".join(["Rscript", self.construct, mat, self.sce]))
+        subprocess.call(["Rscript", self.construct, mat, self.sce])
 
     def plot(self):
         assert os.path.exists(self.sce), "SCE needs to be built before plotted."
