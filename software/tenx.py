@@ -1,7 +1,6 @@
 from software.dropletutils import DropletUtils
 from interface.singlecellexperiment import SingleCellExperiment
 from software.scater import Scater
-from interface.qcreport import QCReport
 from utils import config
 import os
 
