@@ -76,6 +76,11 @@ class TenxAnalysis(object):
         self.metrics_summary = os.path.join(self.path, "metrics_summary.csv")
         self.top_level = "/".join(self.path.split("/")[:-3])
 
+        self.baseobj = "sce.rdata"
+        self.qcdobj = "qcdsce.rdata"
+        self.rdata = os.path.join(self.directory,baseobj)
+        self.qcdrdata = os.path.join(self.directory, qcdobj)
+
     def decompress(self,gzipped,extracted):
         with gzip.open(gzipped, 'rb') as f_in:
             with open(extracted, 'wb') as f_out:
@@ -178,10 +183,7 @@ class TenxAnalysis(object):
         return self.create_scanpy_adata(sce,subset=subset)
 
     def qcd_sce(self):
-        baseobj = "sce.rdata"
-        qcdobj = "qcdsce.rdata"
-        rdata = os.path.join(self.directory,baseobj)
-        qcdrdata = os.path.join(self.directory, qcdobj)
+
         try:
             figures = os.path.join(self.directory, "figures")
             os.makedirs(figures)

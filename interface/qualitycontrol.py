@@ -19,29 +19,50 @@ class QualityControl(object):
         if not os.path.exists(self.cache):
             os.makedirs(self.cache)
         self.script = os.path.join(self.cache,"qc.R")
+        self.build = os.path.join(self.cache,"build.R")
+        self.figures = os.path.join(self.cache,"build.R")
+        self.plots = os.path.join(self.tenx.path, "qc_figures")
         if not os.path.exists(self.script):
             output = open(self.script,"w")
             output.write(script)
             output.write(filter)
             output.write(save)
             output.close()
-        self.storage_account = "scrnadata"
-        self.container = "rdataraw{}".format(self.tenx.detected_version)
-        self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
-
-    def run(self, mito=10):
-        mat = self.tenx.filtered_matrices()
-        subprocess.call(["Rscript", self.script, mat, self.sce, str(mito)])
-
-    def build(self):
-        self.build = os.path.join(self.cache,"build.R")
         if not os.path.exists(self.build):
             output = open(self.script,"w")
             output.write(script)
             output.write(save)
             output.close()
+        if not os.path.exists(self.figures):
+            output = open(self.figures,"w")
+            output.write(script)
+            output.write(save)
+            output.close()
+        if not os.path.exists(self.plots):
+            os.makedirs(self.plots)
+        self.storage_account = "scrnadata"
+        self.container = "rdataraw{}".format(self.tenx.detected_version)
+        self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
+
+    def filter(self, mito=10):
+        assert os.path.exists(self.sce), "SCE needs to be built before filtered."
+        subprocess.call(["Rscript", self.script, mat, self.sce, str(mito)])
+
+    def build(self):
         mat = self.tenx.filtered_matrices()
-        subprocess.call(["Rscript", self.script, mat, self.sce])
+        print(" ".join(["Rscript", self.build, mat, self.sce]))
+        exit(0)
+        subprocess.call(["Rscript", self.build, mat, self.sce])
+
+    def plot(self):
+        assert os.path.exists(self.sce), "SCE needs to be built before plotted."
+        mat = self.tenx.filtered_matrices()
+        subprocess.call(["Rscript", self.figures, mat, self.sce])
+
+    def run(self, mito=10):
+        self.build()
+        self.filter(mito=mito)
+        self.plot()
 
     def sce(self):
         return SingleCellExperiment.fromRData(self.sce)
@@ -105,15 +126,74 @@ sce <- runPCA(sce, ncomponents = 3)
 set.seed(123L)
 sce <- runTSNE(sce)
 
+saveRDS(sce, file=args[2])
 """
 
 
 filter = """
+library(scater)
+library(SingleCellExperiment)
+library(stringr)
+library(scran)
+library(Rtsne)
+
+
+args = commandArgs(trailingOnly=TRUE)
+
+rdata <- readRDS(args[1])
 cells_to_keep <- sce$total_features_by_counts > 1000 & sce$pct_counts_mito < args[3]
 table_cells_to_keep <- table(cells_to_keep)
 sce <- sce[,cells_to_keep]
+
+saveRDS(sce, file=args[2])
 """
 
-save = """
-saveRDS(sce, file=args[2])
+
+figures = """
+library(scater)
+library(SingleCellExperiment)
+library(stringr)
+library(scran)
+library(Rtsne)
+
+
+args = commandArgs(trailingOnly=TRUE)
+
+rdata <- readRDS(args[1])
+sce <- as(rdata, 'SingleCellExperiment')
+
+sce <- runPCA(sce, ncomponents = 3)
+set.seed(123L)
+sce <- runTSNE(sce)
+
+png(paste0(args[2],"/total_features_by_counts.png"))
+plotPCA(sce, colour_by = "total_features_by_counts")
+dev.off()
+
+png(paste0(args[2],"/pct_counts_mito.png"))
+plotPCA(sce, colour_by = "pct_counts_mito")
+dev.off(0)
+
+png(paste0(args[2],"/pct_counts_ribo.png"))
+plotPCA(sce, colour_by = "pct_counts_ribo")
+dev.off(0)
+
+png(paste0(args[2],"/mito_v_features_by_counts.png"))
+plotColData(sce, x = "total_features_by_counts", y = "pct_counts_mito")
+dev.off(0)
+
+png(paste0(args[2],"/total_counts_v_features_by_counts.png"))
+plotColData(sce, x = "total_features_by_counts", y = "total_counts")
+dev.off(0)
+
+png(paste0(args[2],"/umi.png"))
+hist(sce$log10_total_counts, breaks=20, col='darkgoldenrod1',xlab='Log-total UMI count')
+dev.off(0)
+
+png(paste0(args[2],"/mito.png"))
+hist(sce$pct_counts_mito, breaks=20, col='darkolivegreen4',xlab='Proportion of reads in mitochondrial genes')
+dev.off(0)
+
+png(paste0(args[2],"/ribo.png"))
+hist(sce$pct_counts_ribo, breaks=20, col='firebrick4',xlab='Proportion of reads in ribosomal genes')
 """
