@@ -78,8 +78,8 @@ class TenxAnalysis(object):
 
         self.baseobj = "sce.rdata"
         self.qcdobj = "qcdsce.rdata"
-        self.rdata = os.path.join(self.directory,baseobj)
-        self.qcdrdata = os.path.join(self.directory, qcdobj)
+        self.rdata = os.path.join(self.directory,self.baseobj)
+        self.qcdrdata = os.path.join(self.directory, self.qcdobj)
 
     def decompress(self,gzipped,extracted):
         with gzip.open(gzipped, 'rb') as f_in:
