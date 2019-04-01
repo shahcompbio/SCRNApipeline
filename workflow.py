@@ -23,9 +23,7 @@ import pypeliner.workflow
 import pypeliner.app
 import pypeliner.managed
 
-
 config = Configuration()
-
 
 class PrimaryRun(object):
 
@@ -44,7 +42,6 @@ class PrimaryRun(object):
 
     def get_output(self):
         return os.path.join(self.output,self.prefix,"outs")
-
 
     def upload(self, tenx):
         outs = self.get_output()

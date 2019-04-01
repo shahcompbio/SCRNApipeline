@@ -221,7 +221,6 @@ def create_workflow():
     CloneAlign
     """
     if config.run_clonealign and config.copy_number_data is not None and config.clone_assignments is not None:
-
         secondary_analysis.run_clone_align(tenx, config.copy_number_data, config.clone_assignments)
 
 

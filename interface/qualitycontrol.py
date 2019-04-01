@@ -7,11 +7,12 @@ from azure.storage.blob import BlockBlobService, PublicAccess
 
 import subprocess
 import os
+import shutil
 import uuid
 
 class QualityControl(object):
 
-    def __init__(self, tenx, sampleid):
+    def __init__(self, tenx, sampleid, mouse=False):
         self.tenx = tenx
         self.sampleid = sampleid
         self.sce = os.path.join(tenx.path,"{0}.rdata".format(sampleid))
@@ -22,6 +23,7 @@ class QualityControl(object):
         self.construct = os.path.join(self.cache,"build.R")
         self.figures = os.path.join(self.cache,"figures.R")
         self.plots = os.path.join(self.tenx.path, "qc_figures")
+        self.veryraw = os.path.join(self.tenx.path, "raw_build.R")
         if not os.path.exists(self.script):
             output = open(self.script,"w")
             output.write(filter)
@@ -34,10 +36,19 @@ class QualityControl(object):
             output = open(self.figures,"w")
             output.write(figures)
             output.close()
+        if not os.path.exists(self.veryraw):
+            output = open(self.veryraw,"w")
+            output.write(raw)
+            output.close()
         if not os.path.exists(self.plots):
             os.makedirs(self.plots)
         self.storage_account = "scrnadata"
-        self.container = "rdatamouse{}".format(self.tenx.detected_version)
+        if mouse:
+            version = "mouse{}".format(self.tenx.detected_version)
+        else:
+            version = self.tenx.detected_version
+        self.container = "rdata{}".format(version)
+        self.rawcontainer = "rdataraw{}".format(version)
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
 
     def filter(self, mito=10):
@@ -47,7 +58,12 @@ class QualityControl(object):
     def build(self):
         mat = self.tenx.filtered_matrices()
         print(" ".join(["Rscript", self.construct, mat, self.sce]))
-        subprocess.call(["Rscript", self.construct, mat, self.sce])
+        subprocess.call(["Rscript", self.veryraw, mat, self.sce])
+
+    def build_raw(self):
+        mat = self.tenx.raw_matrices()
+        print(" ".join(["Rscript", self.construct, mat, self.sce]))
+        subprocess.call(["Rscript", self.veryraw, mat, self.sce])
 
     def plot(self):
         assert os.path.exists(self.sce), "SCE needs to be built before plotted."
@@ -59,11 +75,37 @@ class QualityControl(object):
         self.filter(mito=mito)
         self.plot()
 
+    def move(self, path):
+        shutil.copyfile(self.sce, path)
+
     def sce(self):
         return SingleCellExperiment.fromRData(self.sce)
 
     def upload(self):
         self.block_blob_service.create_blob_from_path(self.container,"{0}.rdata".format(self.sampleid), self.sce)
+
+    def upload_raw(self):
+        self.block_blob_service.create_blob_from_path(self.rawcontainer,"{0}.rdata".format(self.sampleid), self.sce)
+
+
+
+raw = """
+library(scater)
+library(SingleCellExperiment)
+library(DropletUtils)
+library(stringr)
+
+args = commandArgs(trailingOnly=TRUE)
+
+sce <- read10xCounts(args[1])
+
+# Make sure colnames are unique
+colnames(sce) <- paste0(metadata(sce)$id, "_", sce$Barcode)
+
+
+saveRDS(sce, file=args[2])
+print("Complete!")
+"""
 
 
 script = """
@@ -116,10 +158,6 @@ sce <- calculateQCMetrics(sce, feature_controls = feature_ctrls)
 
 # Make sure colnames are unique
 colnames(sce) <- paste0(metadata(sce)$id, "_", sce$Barcode)
-
-sce <- runPCA(sce, ncomponents = 3)
-set.seed(123L)
-sce <- runTSNE(sce)
 
 saveRDS(sce, file=args[2])
 """

@@ -51,7 +51,7 @@ class TenxAnalysis(object):
             self.raw_gene_bc_matrices = v2_path_raw + "_mex"
             self.detected_version = "v2"
         else:
-            pass
+            print("No Raw Matrices folder found -- Check dir name (raw_feature_bc_matrix or raw_gene_bc_matrices)")
         v3_path_filtered = os.path.join(self.path, 'filtered_feature_bc_matrix')
         v2_path_filtered = os.path.join(self.path, 'filtered_gene_bc_matrices')
         if os.path.exists(v3_path_filtered):
@@ -67,7 +67,7 @@ class TenxAnalysis(object):
             self.filtered_gene_bc_matrices = v2_path_filtered + "_mex"
             self.detected_version = "v2"
         else:
-            raise ValueError("No Matrices folder found -- Check dir name (filtered_feature_bc_matrix or filtered_gene_bc_matrices)")
+            print("No Filtered Matrices folder found -- Check dir name (filtered_feature_bc_matrix or filtered_gene_bc_matrices)")
         self.clustering = os.path.join(self.path, 'analysis/clustering')
         self.matrix = os.path.join(self.path, "")
         self.projection = os.path.join(self.path, 'analysis/pca/10_components/projection.csv')
@@ -91,28 +91,34 @@ class TenxAnalysis(object):
             if os.path.exists(gzipped) and not os.path.exists(flat):
                 self.decompress(gzipped, flat)
 
-        filtered = self.filtered_matrices()
-        print("filtered")
-        self.gzipped_filtered_barcodes = os.path.join(filtered, "barcodes.tsv.gz")
-        self._filtered_barcodes = self.gzipped_filtered_barcodes.replace(".gz","")
-        check_and_decompress(self.gzipped_filtered_barcodes,self._filtered_barcodes)
-        self.gzipped_filtered_matrices = os.path.join(filtered, "matrix.mtx.gz")
-        self._filtered_matrices = self.gzipped_filtered_matrices.replace(".gz","")
-        check_and_decompress(self.gzipped_filtered_matrices,self._filtered_matrices)
-        self.gzipped_filtered_genes = os.path.join(filtered, "features.tsv.gz")
-        self.filtered_genes = self.gzipped_filtered_genes.replace("features","genes").replace(".gz","")
-        check_and_decompress(self.gzipped_filtered_genes,self.filtered_genes)
 
-        raw = self.raw_matrices()
-        self.gzipped_raw_barcodes = os.path.join(raw, "barcodes.tsv.gz")
-        self.raw_barcodes = self.gzipped_raw_barcodes.replace(".gz","")
-        check_and_decompress(self.gzipped_raw_barcodes,self.raw_barcodes)
-        self.gzipped_raw_matrices = os.path.join(raw, "matrix.mtx.gz")
-        self._raw_matrices = self.gzipped_raw_matrices.replace(".gz","")
-        check_and_decompress(self.gzipped_raw_matrices,self._raw_matrices)
-        self.gzipped_raw_genes = os.path.join(raw, "features.tsv.gz")
-        self.raw_genes = self.gzipped_raw_genes.replace("features","genes").replace(".gz","")
-        check_and_decompress(self.gzipped_raw_genes,self.raw_genes)
+        print("filtered")
+        try:
+            filtered = self.filtered_matrices()
+            self.gzipped_filtered_barcodes = os.path.join(filtered, "barcodes.tsv.gz")
+            self._filtered_barcodes = self.gzipped_filtered_barcodes.replace(".gz","")
+            check_and_decompress(self.gzipped_filtered_barcodes,self._filtered_barcodes)
+            self.gzipped_filtered_matrices = os.path.join(filtered, "matrix.mtx.gz")
+            self._filtered_matrices = self.gzipped_filtered_matrices.replace(".gz","")
+            check_and_decompress(self.gzipped_filtered_matrices,self._filtered_matrices)
+            self.gzipped_filtered_genes = os.path.join(filtered, "features.tsv.gz")
+            self.filtered_genes = self.gzipped_filtered_genes.replace("features","genes").replace(".gz","")
+            check_and_decompress(self.gzipped_filtered_genes,self.filtered_genes)
+        except Exception as e:
+            pass
+        try:
+            raw = self.raw_matrices()
+            self.gzipped_raw_barcodes = os.path.join(raw, "barcodes.tsv.gz")
+            self.raw_barcodes = self.gzipped_raw_barcodes.replace(".gz","")
+            check_and_decompress(self.gzipped_raw_barcodes,self.raw_barcodes)
+            self.gzipped_raw_matrices = os.path.join(raw, "matrix.mtx.gz")
+            self._raw_matrices = self.gzipped_raw_matrices.replace(".gz","")
+            check_and_decompress(self.gzipped_raw_matrices,self._raw_matrices)
+            self.gzipped_raw_genes = os.path.join(raw, "features.tsv.gz")
+            self.raw_genes = self.gzipped_raw_genes.replace("features","genes").replace(".gz","")
+            check_and_decompress(self.gzipped_raw_genes,self.raw_genes)
+        except Exception as e:
+            pass
 
     @property
     def chemistry(self):
