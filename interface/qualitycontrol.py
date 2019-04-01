@@ -16,6 +16,7 @@ class QualityControl(object):
         self.tenx = tenx
         self.sampleid = sampleid
         self.sce = os.path.join(tenx.path,"{0}.rdata".format(sampleid))
+        self.qcdsce = os.path.join(tenx.path,"{0}qcd.rdata".format(sampleid))
         self.cache = ".cache"
         if not os.path.exists(self.cache):
             os.makedirs(self.cache)
@@ -52,13 +53,15 @@ class QualityControl(object):
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
 
     def filter(self, mito=10):
-        assert os.path.exists(self.sce), "SCE needs to be built before filtered."
-        subprocess.call(["Rscript", self.script, mat, self.sce, str(mito)])
+        if not os.path.exists(self.qcdsce):
+            assert os.path.exists(self.sce), "SCE needs to be built before filtered."
+            subprocess.call(["Rscript", self.script, self.sce, self.qcdsce, str(mito)])
 
     def build(self):
-        mat = self.tenx.filtered_matrices()
-        print(" ".join(["Rscript", self.construct, mat, self.sce]))
-        subprocess.call(["Rscript", self.veryraw, mat, self.sce])
+        if not os.path.exists(self.sce):
+            mat = self.tenx.filtered_matrices()
+            print(" ".join(["Rscript", self.construct, mat, self.sce]))
+            subprocess.call(["Rscript", self.veryraw, mat, self.sce])
 
     def build_raw(self):
         mat = self.tenx.raw_matrices()
