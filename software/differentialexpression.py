@@ -104,7 +104,7 @@ class DifferentialExpression(object):
             adj_pvalue_dict = dict(zip(symbols[sample], adjpval[sample]))
             fold_change_dict = dict(zip(symbols[sample], foldchange[sample]))
 
-            sort_dict = pvalue_dict
+            sort_dict = fold_change_dict
 
             filtered_stats = dict()
             for symbol in symbols[sample]:
@@ -114,7 +114,7 @@ class DifferentialExpression(object):
                 filtered_stats[symbol] = sort_dict[symbol]
 
             print ("Filtered Symbols",len(filtered_stats.keys()), "of", len(symbols[sample]))
-            sorted_symbols = list(sorted(filtered_stats.items(), key=operator.itemgetter(1)))
+            sorted_symbols = list(reversed(sorted(filtered_stats.items(), key=operator.itemgetter(1))))
 
             top_genes += [x[0] for x in sorted_symbols[start:stop]]
 
