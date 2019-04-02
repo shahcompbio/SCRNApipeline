@@ -113,7 +113,7 @@ class DifferentialExpression(object):
                 if abs(fold_change_dict[symbol]) < 1.0: continue
                 filtered_stats[symbol] = sort_dict[symbol]
 
-            print ("Filtered Symbols",len(filtered_stats.keys()), "of", len(symbols[sample].keys()))
+            print ("Filtered Symbols",len(filtered_stats.keys()), "of", len(symbols[sample]))
             sorted_symbols = list(sorted(filtered_stats.items(), key=operator.itemgetter(1)))
 
             top_genes += [x[0] for x in sorted_symbols[start:stop]]
