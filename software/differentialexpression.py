@@ -44,8 +44,13 @@ class DifferentialExpression(object):
             adata.obs['percent_mito'] = numpy.sum(adata[:, mito_genes].X, axis=1).A1 / numpy.sum(adata.X, axis=1).A1
             adata.obs['n_counts'] = adata.X.sum(axis=1).A1
             adata = adata[adata.obs['percent_mito'] < mito, :]
-            sc.pp.normalize_per_cell(adata, counts_per_cell_after=1e4)
+            sc.pp.normalize_per_cell(adata)
             sc.pp.log1p(adata)
+            adata.raw = adata
+            sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            adata = adata[:, adata.var['highly_variable']]
+            sc.pp.regress_out(adata, ['n_counts', 'percent_mito'])
+            sc.pp.scale(adata, max_value=10)
             common_genes = list(adata.var.index)
             genesets.append(set(common_genes))
             adatas.append(adata)
@@ -55,11 +60,12 @@ class DifferentialExpression(object):
         for adata in adatas:
             _adatas.append(adata[:,common_genes])
         corrected = Scanorama.integrate_and_correct(_adatas)
-        # sc.pp.highly_variable_genes(corrected)
-        # corrected = corrected[:, corrected.var['highly_variable']]
         batch_to_sample  = dict(zip(range(len(self.samples)),self.samples))
         corrected.obs['sample'] = [batch_to_sample[int(i)] for i in corrected.obs['batch']]
-        sc.tl.rank_genes_groups(corrected, groupby="sample", n_genes=n_genes)
+        sc.pp.log1p(adata)
+        adata.raw = adata
+        sc.pp.scale(adata, max_value=10)
+        sc.tl.rank_genes_groups(corrected, groupby="sample", method='logreg', n_genes=n_genes)
         foldchange = dict()
         pvalues = dict()
         adjpval = dict()
@@ -90,18 +96,20 @@ class DifferentialExpression(object):
         top_genes = []
         brackets = []
         start = 0
-        stop = 10
+        stop = 9
+        stride = 10
         for i, sample in enumerate(self.samples):
             print ("Sorting {}".format(sample))
-            print (foldchange[sample])
+            print ("Fold change", min(foldchange[sample]), max(foldchange[sample]))
             print ("Pvalue", min(pvalues[sample]), max(pvalues[sample]))
             print ("Adj Pvalues", min(adjpval[sample]), max(adjpval[sample]))
             foldchanges = dict(zip(symbols[sample], pvalues[sample]))
             sorted_symbols = sorted(foldchanges.items(), key=operator.itemgetter(1))
-            top_genes += [x[0] for x in sorted_symbols[:stop]]
+            top_genes += [x[0] for x in sorted_symbols[:stride]]
+            print(sample, top_genes)
             brackets.append((start,stop))
-            start += 5
-            stop += 5
+            start += stride
+            stop += stride
         sc.pl.stacked_violin(corrected, var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
 
     def run_transcript(self, fastqs=[]):
