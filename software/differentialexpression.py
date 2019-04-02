@@ -44,13 +44,13 @@ class DifferentialExpression(object):
             adata.obs['percent_mito'] = numpy.sum(adata[:, mito_genes].X, axis=1).A1 / numpy.sum(adata.X, axis=1).A1
             adata.obs['n_counts'] = adata.X.sum(axis=1).A1
             adata = adata[adata.obs['percent_mito'] < mito, :]
-            sc.pp.normalize_per_cell(adata)
-            sc.pp.log1p(adata)
-            adata.raw = adata
-            sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
-            adata = adata[:, adata.var['highly_variable']]
-            sc.pp.regress_out(adata, ['n_counts', 'percent_mito'])
-            sc.pp.scale(adata, max_value=10)
+            # sc.pp.normalize_per_cell(adata)
+            # sc.pp.log1p(adata)
+            # adata.raw = adata
+            # sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            # adata = adata[:, adata.var['highly_variable']]
+            # sc.pp.regress_out(adata, ['n_counts', 'percent_mito'])
+            # sc.pp.scale(adata, max_value=10)
             common_genes = list(adata.var.index)
             genesets.append(set(common_genes))
             adatas.append(adata)
@@ -96,7 +96,7 @@ class DifferentialExpression(object):
         start = 0
         stop = 10
         stride = 10
-
+        #‘Rook’, ‘quantreg’, ‘RMTstat’, ‘extRemes’, ‘pcaMethods’
         for i, sample in enumerate(self.samples):
             print ("Sorting {}".format(sample))
 
