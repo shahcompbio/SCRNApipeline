@@ -94,7 +94,7 @@ class DifferentialExpression(object):
         top_genes = []
         brackets = []
         start = 0
-        stop = 9
+        stop = 10
         stride = 10
         for i, sample in enumerate(self.samples):
             print ("Sorting {}".format(sample))
@@ -103,7 +103,7 @@ class DifferentialExpression(object):
             print ("Adj Pvalues", min(adjpval[sample]), max(adjpval[sample]))
             foldchanges = dict(zip(symbols[sample], pvalues[sample]))
             sorted_symbols = sorted(foldchanges.items(), key=operator.itemgetter(1))
-            top_genes += [x[0] for x in sorted_symbols[:stride]]
+            top_genes += [x[0] for x in sorted_symbols[start:stop]]
             print(sample, top_genes)
             brackets.append((start,stop))
             start += stride
