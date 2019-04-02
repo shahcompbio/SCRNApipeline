@@ -110,12 +110,14 @@ class DifferentialExpression(object):
             top_genes += [x[0] for x in sorted_symbols[start:stop]]
 
             print("Symbols", sample, [x[0] for x in sorted_symbols[start:stop]])
-            print("Fold Changes",sample, [foldchange[sample][x[0]] for x in sorted_symbols[start:stop]])
-            print("P-Values",sample, [pvalues[sample][x[0]] for x in sorted_symbols[start:stop]])
-            print("Adj P-Values",sample, [adjpval[sample][x[0]] for x in sorted_symbols[start:stop]])
+            print("Fold Changes",sample, [fold_change_dict[x[0]] for x in sorted_symbols[start:stop]])
+            print("P-Values",sample, [pvalue_dict[x[0]] for x in sorted_symbols[start:stop]])
+            print("Adj P-Values",sample, [adj_pval_pvalue[sample][x[0]] for x in sorted_symbols[start:stop]])
+
             brackets.append((start,stop))
             start += stride
             stop += stride
+
         sc.pl.stacked_violin(corrected, scale='width', var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
 
     def run_transcript(self, fastqs=[]):
