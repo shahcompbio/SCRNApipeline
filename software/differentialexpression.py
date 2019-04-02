@@ -100,8 +100,6 @@ class DifferentialExpression(object):
         for i, sample in enumerate(self.samples):
             print ("Sorting {}".format(sample))
 
-            sorted_by_value = dict(zip(symbols[sample], sort_dict[sample]))
-
             pvalue_dict = dict(zip(symbols[sample], pvalues[sample]))
             adj_pvalue_dict = dict(zip(symbols[sample], adjpval[sample]))
             fold_change_dict = dict(zip(symbols[sample], foldchange[sample]))
