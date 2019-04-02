@@ -105,6 +105,7 @@ class DifferentialExpression(object):
             sorted_symbols = sorted(foldchanges.items(), key=operator.itemgetter(1))
             top_genes += [x[0] for x in sorted_symbols[start:stop]]
             print(sample, [x[0] for x in sorted_symbols[start:stop]])
+            print(sample, [x[1] for x in sorted_symbols[start:stop]])
             brackets.append((start,stop))
             start += stride
             stop += stride
