@@ -109,7 +109,7 @@ class DifferentialExpression(object):
             filtered_stats = dict()
             for symbol in symbols[sample]:
                 if pvalue_dict[symbol] > 0.05: continue
-                if adj_pval_dict[symbol] > 0.2: continue
+                if adj_pvalue_dict[symbol] > 0.2: continue
                 if abs(fold_change_dict[symbol]) < 1.0: continue
                 filtered_stats[symbol] = sort_dict[symbol]
 
