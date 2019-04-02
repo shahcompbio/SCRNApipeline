@@ -121,7 +121,7 @@ class DifferentialExpression(object):
             print("Symbols", sample, [x[0] for x in sorted_symbols[start:stop]])
             print("Fold Changes",sample, [fold_change_dict[x[0]] for x in sorted_symbols[start:stop]])
             print("P-Values",sample, [pvalue_dict[x[0]] for x in sorted_symbols[start:stop]])
-            print("Adj P-Values",sample, [adj_pval_dict[sample][x[0]] for x in sorted_symbols[start:stop]])
+            print("Adj P-Values",sample, [adj_pvalue_dict[sample][x[0]] for x in sorted_symbols[start:stop]])
 
             brackets.append((start,stop))
             start += stride
