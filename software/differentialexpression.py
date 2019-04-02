@@ -109,7 +109,7 @@ class DifferentialExpression(object):
             brackets.append((start,stop))
             start += stride
             stop += stride
-        sc.pl.stacked_violin(corrected, scale='width', inner='box', var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
+        sc.pl.stacked_violin(corrected, scale='width', var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
 
     def run_transcript(self, fastqs=[]):
         matrices = dict()
