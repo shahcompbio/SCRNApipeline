@@ -96,16 +96,16 @@ class DifferentialExpression(object):
         start = 0
         stop = 10
         stride = 10
+        sort_dict = foldchange
         for i, sample in enumerate(self.samples):
             print ("Sorting {}".format(sample))
-            print ("Fold change", min(foldchange[sample]), max(foldchange[sample]))
-            print ("Pvalue", min(pvalues[sample]), max(pvalues[sample]))
-            print ("Adj Pvalues", min(adjpval[sample]), max(adjpval[sample]))
-            foldchanges = dict(zip(symbols[sample], pvalues[sample]))
-            sorted_symbols = sorted(foldchanges.items(), key=operator.itemgetter(1))
+            sorted_by_value = dict(zip(symbols[sample], sort_dict[sample]))
+            sorted_symbols = sorted(sorted_by_value.items(), key=operator.itemgetter(1))
             top_genes += [x[0] for x in sorted_symbols[start:stop]]
-            print(sample, [x[0] for x in sorted_symbols[start:stop]])
-            print(sample, [x[1] for x in sorted_symbols[start:stop]])
+            print("Symbols", sample, [x[0] for x in sorted_symbols[start:stop]])
+            print("Fold Changes",sample, [foldchange[sample][x[0]] for x in sorted_symbols[start:stop]])
+            print("P-Values",sample, [pvalues[sample][x[0]] for x in sorted_symbols[start:stop]])
+            print("Adj P-Values",sample, [adjpval[sample][x[1]] for x in sorted_symbols[start:stop]])
             brackets.append((start,stop))
             start += stride
             stop += stride
