@@ -62,10 +62,8 @@ class DifferentialExpression(object):
         corrected = Scanorama.integrate_and_correct(_adatas)
         batch_to_sample  = dict(zip(range(len(self.samples)),self.samples))
         corrected.obs['sample'] = [batch_to_sample[int(i)] for i in corrected.obs['batch']]
-        # sc.pp.log1p(adata)
-        # adata.raw = adata
         sc.pp.scale(adata, max_value=10)
-        sc.tl.rank_genes_groups(corrected, groupby="sample", method='logreg', n_genes=n_genes)
+        sc.tl.rank_genes_groups(corrected, groupby="sample", method='t-test', n_genes=n_genes)
         foldchange = dict()
         pvalues = dict()
         adjpval = dict()
