@@ -114,7 +114,7 @@ class DifferentialExpression(object):
                 filtered_stats[symbol] = sort_dict[symbol]
 
             print ("Filtered Symbols",len(filtered_stats.keys()))
-            sorted_symbols = reversed(sorted(filtered_stats.items(), key=operator.itemgetter(1)))
+            sorted_symbols = list(reversed(sorted(filtered_stats.items(), key=operator.itemgetter(1))))
 
             top_genes += [x[0] for x in sorted_symbols[start:stop]]
 
