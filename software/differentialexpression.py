@@ -128,7 +128,7 @@ class DifferentialExpression(object):
             stop += stride
         sc.pl.stacked_violin(corrected, var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
         sc.pl.violin(corrected, multipanel=True, keys=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
-        sc.pl.heatmap(corrected, multipanel=True, var_names=top_genes, groupby="sample", dendrogram=True ,save="de.png")
+        sc.pl.heatmap(corrected, var_names=top_genes, groupby="sample", dendrogram=True ,save="de.png")
 
     def run_transcript(self, fastqs=[]):
         matrices = dict()
