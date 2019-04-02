@@ -63,7 +63,7 @@ class DifferentialExpression(object):
         batch_to_sample  = dict(zip(range(len(self.samples)),self.samples))
         corrected.obs['sample'] = [batch_to_sample[int(i)] for i in corrected.obs['batch']]
         sc.pp.scale(adata, max_value=10)
-        sc.tl.rank_genes_groups(corrected, groupby="sample", method='t-test', n_genes=n_genes)
+        sc.tl.rank_genes_groups(corrected, groupby="sample", method='wilcoxon', n_genes=n_genes)
         foldchange = dict()
         pvalues = dict()
         adjpval = dict()
@@ -127,7 +127,7 @@ class DifferentialExpression(object):
             start += stride
             stop += stride
 
-        sc.pl.stacked_violin(corrected, scale='width', var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
+        sc.pl.violin(corrected, multipanel=True, var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
 
     def run_transcript(self, fastqs=[]):
         matrices = dict()
