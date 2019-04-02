@@ -3,5 +3,5 @@ samples = ["Y7640", "Y7652", "Y7668", "Y8841"]
 
 
 print ("Running DE")
-de = DifferentialExpression(samples[:2])
+de = DifferentialExpression(samples)
 de.run()
