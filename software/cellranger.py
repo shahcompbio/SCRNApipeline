@@ -83,7 +83,6 @@ class CellRanger(object):
         except Exception as e:
             pass
         args["transcriptome"] = config.reference
-        print(config.reference)
         if config.chemistry is not None:
             args["chemistry"] = config.chemistry
         cmd = CellRanger.cmd("count",args)

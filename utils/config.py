@@ -39,8 +39,12 @@ cellranger = "/home/ceglian/codebase/cellranger-2.2.0/cellranger-cs/2.2.0/bin"
 
 def write_config(prefix, output, reference):
     output = open("settings.yaml","w")
-    build = reference.split("/")[-2]
-    reference = reference
+    if "/" not in reference:
+        build = reference
+        reference = None
+    else:
+        build = reference.split("/")[-2]
+        reference = reference
     output.write(basic_yaml.format(prefix, build, reference, cellranger))
 
 class Configuration(object):
@@ -53,17 +57,19 @@ class Configuration(object):
         self.referencepath = None
         self.build = None
         self.chemistry = "auto"
-        self.qc_type = "tenx_filtered"
+        self.qc_type = "standard"
         self.low_counts_genes_threshold = 4
         self.stds = 6
         overrides = yaml_configuration()
         if overrides != None:
             for attr, value in overrides.items():
                 setattr(self, attr, value)
-        if self.reference is None and (self.build != None and self.reference != None):
+        if self.reference == "None" or self.reference == None:
+            if self.referencepath == None:
+                self.referencepath = "/reference"
             refobj = ReferenceDataStorage(self.build, self.referencepath)
             self.reference = refobj.download()
-        if self.reference is not None:
+        else:
             self.genes_gtf = os.path.join(self.reference, "genes/genes.gtf")
         if self.build == None:
             self.build = "GRCh38"

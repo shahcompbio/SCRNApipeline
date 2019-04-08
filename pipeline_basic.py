@@ -8,18 +8,7 @@ import pypeliner.workflow
 import pypeliner.app
 import pypeliner.managed
 
-from software.cellranger import CellRanger
-from software.cellassign import CellAssign
-from software.clonealign import CloneAlign
-from software.scviz import SCViz
-
-from interface.fastqdirectory import FastQDirectory
-from interface.tenxanalysis import TenxAnalysis
-from interface.genemarkermatrix import GeneMarkerMatrix, generate_json
-from interface.singlecellexperiment import SingleCellExperiment
-
 from utils.config import Configuration, write_config
-from utils.cloud import TenxDataStorage, VirtualMachine
 
 from workflows.run_cellranger import RunCellranger
 from workflows.run_qc import RunQC
@@ -28,31 +17,28 @@ def create_workflow():
 
     workflow = pypeliner.workflow.Workflow()
 
-    _fastqs = args.get("fastqs")
-    prefix = args.get("prefix")
+    _fastqs = args.get("sampleid")
+    prefix = args.get("sampleid")
     reference = args.get("reference")
     output = args.get("output")
-
     write_config(prefix,output,reference)
 
+    print("Setting up fastqs...")
     fastqs = []
-    for fastq in _fastqs:
-        fastqs.append(FastQDirectory(fastq, prefix, output))
+    fastqs.append(FastQDirectory(fastq, prefix, output, "/data"))
 
     workflow = RunCellranger(fastqs, workflow)
 
     return workflow
-
 
 if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser()
     pypeliner.app.add_arguments(argparser)
 
-    argparser.add_argument('--fastqs', type=str, nargs="+", help='CellRanger Structured FastQ Output Directory')
+    argparser.add_argument('--sampleid', type=str, nargs="+", help='Sample ID linked to fastqs in scrnadata.')
     argparser.add_argument('--output', type=str, help="Base directory for output")
-    argparser.add_argument("--prefix", type=str, help="Analysis prefix")
-    argparser.add_argument("--reference", type=str, help="Reference")
+    argparser.add_argument("--reference", type=str, help="Reference build.")
 
     parsed_args = argparser.parse_args()
 

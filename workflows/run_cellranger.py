@@ -9,7 +9,7 @@ from software.cellranger import CellRanger
 
 def RunCellranger(fastqs, workflow):
     assert len(fastqs) > 0, "Need to provide atleast 1 fastq directory."
-    completed = os.path.join(fastqs[0].output, "cellranger.complete")
+    completed = os.path.join(fastqs[0].output, fastqs[0].id, "outs", "web_summary.html")
     workflow.transform (
         name = "{}_cellranger_counts".format(fastqs[0].id),
         func = CellRanger.count,
