@@ -4,6 +4,7 @@ import scanpy.api as sc
 import matplotlib.pyplot as plt
 from interface.tenxanalysis import TenxAnalysis
 from utils.cloud import TenxDataStorage
+import numpy
 
 
 class Scanorama(object):
@@ -31,14 +32,11 @@ class Scanorama(object):
         return sce
 
     @staticmethod
-    def integrate_and_correct(samples, assay="counts"):
-        tenxs = Scanorama.get_tenx(samples)
-        common_genes = Scanorama.get_genes(tenxs)
-        adatas = [Scanorama.get_qcd_adata(sample, common_genes) for sample in tenxs]
-        integrateds, correcteds = scanorama.correct_scanpy(adatas, return_dimred=True)
-        for tenx, integrated, corrected in zip(tenxs, integrateds, correcteds):
-            tenx.set_corrected(corrected)
-            tenx.set_integrated(integrated)
+    def integrate_and_correct(adatas, assay="counts"):
+        correcteds = scanorama.correct_scanpy(adatas)
+        correct = correcteds.pop(0)
+        corrected = correct.concatenate(*correcteds, batch_key="batch")
+        return corrected
 
 
     @staticmethod

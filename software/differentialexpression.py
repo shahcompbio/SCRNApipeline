@@ -9,20 +9,129 @@ import collections
 import tqdm
 import os
 
+import scanpy.api as sc
 from software.kallisto import Kallisto
 from interface.tenxanalysis import TenxAnalysis
 from interface.fastqdirectory import FastQDirectory
+from software.batchcorrection import Scanorama
 from utils.cloud import TenxDataStorage
+from interface.qualitycontrol import QualityControl
 
 class DifferentialExpression(object):
 
-    def __init__(self, sampleids, fastqs, chem="v2"):
-        assert len(sampleids) == len(fastqs) == 2
-        print (sampleids)
-        self.model = LogisticRegression(random_state=0, solver='lbfgs', multi_class='multinomial')
-        matrices = dict()
+    def __init__(self, sampleids, chem="v2", output="./"):
+        self.output = output
         self.samples = sampleids
-        for sampleid, fastq in zip(sampleids, fastqs):
+        self.tenxs = []
+        for sampleid in self.samples:
+            tenx = TenxDataStorage(sampleid,version=chem)
+            tenx.download()
+            tenx_analysis = TenxAnalysis(tenx.tenx_path)
+            tenx_analysis.load()
+            tenx_analysis.extract()
+            self.tenxs.append(tenx_analysis)
+
+    def run(self, method="logreg", correction="benjamini-hochberg", n_genes=500, mito=0.1, min_genes=200, min_cells=3):
+        genesets = []
+        adatas = []
+        for sampleid, tenx in zip(self.samples, self.tenxs):
+            adata = tenx.create_scanpy_adata_basic(sample_key=self.samples[0])
+            adata.var_names_make_unique()
+            adata.obs_names_make_unique()
+            sc.pp.filter_cells(adata, min_genes=200, inplace=True)
+            sc.pp.filter_genes(adata, min_cells=3,inplace=True)
+            mito_genes = adata.var_names.str.startswith('MT-')
+            adata.obs['percent_mito'] = numpy.sum(adata[:, mito_genes].X, axis=1).A1 / numpy.sum(adata.X, axis=1).A1
+            adata.obs['n_counts'] = adata.X.sum(axis=1).A1
+            adata = adata[adata.obs['percent_mito'] < mito, :]
+            # sc.pp.normalize_per_cell(adata)
+            # sc.pp.log1p(adata)
+            # adata.raw = adata
+            # sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            # adata = adata[:, adata.var['highly_variable']]
+            # sc.pp.regress_out(adata, ['n_counts', 'percent_mito'])
+            # sc.pp.scale(adata, max_value=10)
+            common_genes = list(adata.var.index)
+            genesets.append(set(common_genes))
+            adatas.append(adata)
+        _adatas = []
+        common_genes = set.intersection(*genesets)
+        common_genes = list(common_genes)
+        for adata in adatas:
+            _adatas.append(adata[:,common_genes])
+        corrected = Scanorama.integrate_and_correct(_adatas)
+        batch_to_sample  = dict(zip(range(len(self.samples)),self.samples))
+        corrected.obs['sample'] = [batch_to_sample[int(i)] for i in corrected.obs['batch']]
+        #sc.pp.scale(adata, max_value=10)
+        sc.tl.rank_genes_groups(corrected, groupby="sample", method='wilcoxon', n_genes=n_genes)
+        foldchange = dict()
+        pvalues = dict()
+        adjpval = dict()
+        symbols = dict()
+        for i, sample in enumerate(self.samples):
+            print ("Writing {}".format(sample))
+            matrix = []
+            columns = []
+            for key, values in corrected.uns['rank_genes_groups'].items():
+                if key == "params": continue
+                columns.append(key)
+                scores = [x[i] for x in list(values)]
+                if key == "pvals":
+                    pvalues[sample] = list(map(float, scores))
+                if key == "pvals_adj":
+                    adjpval[sample] = list(map(float, scores))
+                if key == "logfoldchanges":
+                    foldchange[sample] = list(map(float, scores))
+                if key == "names":
+                    symbols[sample] = scores
+                matrix.append(scores)
+            output = open(os.path.join(self.output, "{}_{}_de.tsv".format(method, sample)),"w")
+            output.write("\t".join(columns)+"\n")
+            for row in zip(*matrix):
+                row = map(str,row)
+                output.write("\t".join(row)+"\n")
+            output.close()
+        top_genes = []
+        brackets = []
+        start = 0
+        stop = 10
+        stride = 10
+        #‘Rook’, ‘quantreg’, ‘RMTstat’, ‘extRemes’, ‘pcaMethods’
+        for i, sample in enumerate(self.samples):
+            print ("Sorting {}".format(sample))
+
+            pvalue_dict = dict(zip(symbols[sample], pvalues[sample]))
+            adj_pvalue_dict = dict(zip(symbols[sample], adjpval[sample]))
+            fold_change_dict = dict(zip(symbols[sample], foldchange[sample]))
+
+            sort_dict = fold_change_dict
+
+            filtered_stats = dict()
+            for symbol in symbols[sample]:
+                if pvalue_dict[symbol] > 0.05: continue
+                if adj_pvalue_dict[symbol] > 0.2: continue
+                if abs(fold_change_dict[symbol]) < 1.0: continue
+                filtered_stats[symbol] = sort_dict[symbol]
+
+            print ("Filtered Symbols",len(filtered_stats.keys()), "of", len(symbols[sample]))
+            sorted_symbols = list(reversed(sorted(filtered_stats.items(), key=operator.itemgetter(1))))
+
+            top_genes += [x[0] for x in sorted_symbols[start:stop]]
+
+            print("Symbols", sample, [x[0] for x in sorted_symbols[start:stop]])
+            print("Fold Changes",sample, [fold_change_dict[x[0]] for x in sorted_symbols[start:stop]])
+            print("P-Values",sample, [pvalue_dict[x[0]] for x in sorted_symbols[start:stop]])
+            print("Adj P-Values",sample, [adj_pvalue_dict[x[0]] for x in sorted_symbols[start:stop]])
+
+            brackets.append((start,stop))
+            start += stride
+            stop += stride
+        sc.pl.stacked_violin(corrected, var_names=top_genes, groupby="sample", var_group_positions=brackets, var_group_labels=self.samples, save="de.png")
+
+    def run_transcript(self, fastqs=[]):
+        matrices = dict()
+        assert len(fastqs) == len(self.samples), "Provide fastq object for each sample."
+        for sampleid, fastq in zip(self.samples, self.fastqs):
             tenx = TenxDataStorage(sampleid,version="v2")
             tenx.download()
             tenx_analysis = TenxAnalysis(tenx.tenx_path)
@@ -37,9 +146,7 @@ class DifferentialExpression(object):
         self.matrix1 = self.matrices[sampleids[0]]
         self.matrix2 = self.matrices[sampleids[1]]
         self.common_genes = set(self.matrix1.keys()).intersection(set(self.matrix2.keys()))
-
-
-    def logistic_regression(self):
+        self.model = LogisticRegression(random_state=0, solver='lbfgs', multi_class='multinomial')
         de_file = "{}_{}_de.tsv".format(self.samples[0],self.samples[1])
         if not os.path.exists(de_file):
             return

@@ -17,6 +17,7 @@ import pyparsing as pp
 import pickle
 from interface.singlecellexperiment import SingleCellExperiment
 from utils.export import ScaterCode
+from scipy import io, sparse
 
 config = Configuration()
 
@@ -90,9 +91,6 @@ class TenxAnalysis(object):
         def check_and_decompress(gzipped,flat):
             if os.path.exists(gzipped) and not os.path.exists(flat):
                 self.decompress(gzipped, flat)
-
-
-        print("filtered")
         try:
             filtered = self.filtered_matrices()
             self.gzipped_filtered_barcodes = os.path.join(filtered, "barcodes.tsv.gz")
@@ -184,28 +182,91 @@ class TenxAnalysis(object):
     def filtered_sce(self):
         return TenX.read10xCountsFiltered(tenx,rdata)
 
+    def make_10x_output(self):
+        rows = open("Unselected_Cal-KB_1_dense.csv","r").read().splitlines()
+        genes = rows.pop(0).split(",")
+        genes = genes[2:]
+        barcodes = []
+        exprs = []
+        for row in tqdm.tqdm(rows):
+            row = row.split(",")
+            exp = list(map(int,row[2:]))
+            exprs.append(exp)
+            barcode = row[0]
+            barcodes.append(row[0])
+
+        output = open("barcodes.tsv","w")
+        for barcode in barcodes:
+            output.write(barcode+"\n")
+        output.close()
+
+        _gene_map = open("../genes.tsv","r").read().splitlines()
+        gene_map = dict()
+        for row in _gene_map:
+            row = row.split()
+            gene_map[row[1].upper()] = row[0]
+
+        misses = []
+        output = open("genes.tsv","w")
+        for gene in genes:
+            try:
+                symbol = gene_map[gene]
+            except KeyError:
+                misses.append(gene)
+                symbol = "---"
+            output.write(symbol+"\t"+gene+"\n")
+        output.close()
+
+        print (len(misses), len(genes))
+
+        print (misses)
+
+        for gene in misses:
+            print(gene)
+        nd = numpy.matrix(exprs)
+        mat = sparse.csr_matrix(nd).T
+        print(mat.shape)
+
+        rows = open("matrix3.mtx","r").read().splitlines()
+        output = open("matrix.mtx","w")
+        header = rows[:2]
+        for x in header:
+            output.write(x+"\n")
+        x = rows[2].split()
+        output.write(" ".join([x[1],x[0],x[2]])+"\n")
+        sorted_rows = []
+        for row in reversed(rows[3:]):
+            row = row.split()
+            new_row = [row[1],row[0],row[2]]
+            sorted_rows.append(new_row)
+            #output.write(" ".join(new_row)+"\n")
+        sorted_rows = sorted(sorted_rows, key=lambda x: x[1])
+        for row in sorted_rows:
+            output.write(" ".join(row)+"\n")
+        output.close()
+        io.mmwrite("matrix.mtx",mat)
+
+
     def qcd_adata(self,subset=None):
         sce = self.qcd_sce()
         return self.create_scanpy_adata(sce,subset=subset)
 
     def qcd_sce(self):
-
-        try:
-            figures = os.path.join(self.directory, "figures")
-            os.makedirs(figures)
-        except Exception as e:
-            pass
-        if not os.path.exists(qcdrdata):
-            TenX.read10xCountsFiltered(self,rdata)
-            rscript = ScaterCode(self.directory).generate_script()
-            cwd = os.getcwd()
-            os.chdir(self.directory)
-            print(os.getcwd())
-            cmd = ["Rscript",os.path.split(rscript)[-1],baseobj,qcdobj]
-            subprocess.call(cmd)
-            os.chdir(cwd)
-        return SingleCellExperiment.fromRData(qcdrdata)
-
+        # if not os.path.exists(self.qcdrdata):
+        #     qc = QualityControl(self)
+        #     qc.build()
+        #     qc.filter()
+        #
+        #     # TenX.read10xCountsFiltered(self,self.rdata)
+        #     # rscript = ScaterCode(self.directory).generate_script()
+        #     # cwd = os.getcwd()
+        #     # os.chdir(self.directory)
+        #     # print(os.getcwd())
+        #     # cmd = ["Rscript",os.path.split(rscript)[-1],self.rdata,self.qcdrdata]
+        #     # subprocess.call(cmd)
+        #     # os.chdir(cwd)
+        # print (self.qcdrdata)
+        return SingleCellExperiment.fromRData(self.qcdrdata)
 
     def bam_tarball(self):
         return self.bamtarball
@@ -291,6 +352,15 @@ class TenxAnalysis(object):
             else:
                 transcripts[symbol] = original
         return transcripts
+
+    def create_scanpy_adata_basic(self, assay="counts", sample_key=None):
+        adata = sc.read_10x_mtx(self.filtered_matrices(), make_unique=True)
+        # adata.var_names_make_unique()
+        # adata.obs_names_make_unique()
+        # sc.pp.highly_variable_genes(adata, flavor="cell_ranger", subset=True)
+        # adata = sc.tl.pca(adata, copy=True)
+        # adata = sc.pp.neighbors(adata, copy=True)
+        return adata
 
 
     def create_scanpy_adata(self, sce, fast_load=True, assay="counts", high_var = False, subset=None):
