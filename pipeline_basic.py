@@ -18,25 +18,30 @@ from interface.tenxanalysis import TenxAnalysis
 from interface.genemarkermatrix import GeneMarkerMatrix, generate_json
 from interface.singlecellexperiment import SingleCellExperiment
 
-from utils.config import Configuration
+from utils.config import Configuration, write_config
 from utils.cloud import TenxDataStorage, VirtualMachine
 
 from workflows.run_cellranger import RunCellranger
 from workflows.run_qc import RunQC
 
-
-
-config = Configuration()
-
 def create_workflow():
 
     workflow = pypeliner.workflow.Workflow()
 
+    _fastqs = args.get("fastqs")
+    prefix = args.get("prefix")
+    reference = args.get("reference")
+    output = args.get("output")
 
-    RunCellranger()
-    RunQC()
+    write_config(prefix,output,reference)
 
+    fastqs = []
+    for fastq in _fastqs:
+        fastqs.append(FastQDirectory(fastq, prefix, output))
 
+    workflow = RunCellranger(fastqs, workflow)
+
+    return workflow
 
 
 if __name__ == '__main__':
@@ -45,9 +50,9 @@ if __name__ == '__main__':
     pypeliner.app.add_arguments(argparser)
 
     argparser.add_argument('--fastqs', type=str, nargs="+", help='CellRanger Structured FastQ Output Directory')
-    argparser.add_argument('--out', type=str, help="Base directory for output")
+    argparser.add_argument('--output', type=str, help="Base directory for output")
     argparser.add_argument("--prefix", type=str, help="Analysis prefix")
-    argparser.add_argument("--yaml", type=str, help="Configuration settings for pipeline.")
+    argparser.add_argument("--reference", type=str, help="Reference")
 
     parsed_args = argparser.parse_args()
 

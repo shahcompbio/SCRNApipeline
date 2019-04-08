@@ -6,7 +6,6 @@ import os
 import sys
 import pandas
 import collections
-from pybedtools import BedTool, Interval
 import subprocess
 
 from utils.config import Configuration

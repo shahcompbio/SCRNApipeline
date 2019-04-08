@@ -19,7 +19,7 @@ def Run(sampleid, mito):
     qc.upload()
 
 
-def RunQC(tenx, mito, workflow)
+def RunQC(tenx, mito, workflow):
     self.workflow.transform (
         name = "read10xcounts",
         func = Run,

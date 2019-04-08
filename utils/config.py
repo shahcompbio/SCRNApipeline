@@ -10,6 +10,39 @@ def yaml_configuration():
             doc = yaml.load(f)
             return doc
 
+
+basic_yaml = """
+prefix: "{0}"
+build: "{1}"
+jobpath: "/jobs/test"
+datapath: "/data/test"
+reference: "{2}"
+rho_matrix: None
+cellranger: "{3}"
+copy_number_data: None
+scviz_embedding: None
+run_scvis: False
+run_cellassign: False
+run_clonealign: False
+plot_scvis: False
+clustering: False
+report: True
+perplexity: 5
+resolution: 0.2
+stds: 6
+components: 50
+chemistry: auto
+low_counts_genes_threshold: 4
+"""
+
+cellranger = "/home/ceglian/codebase/cellranger-2.2.0/cellranger-cs/2.2.0/bin"
+
+def write_config(prefix, output, reference):
+    output = open("settings.yaml","w")
+    build = reference.split("/")[-2]
+    reference = reference
+    output.write(basic_yaml.format(prefix, build, reference, cellranger))
+
 class Configuration(object):
     def __init__(self):
         self.reference = None
@@ -34,50 +67,3 @@ class Configuration(object):
             self.genes_gtf = os.path.join(self.reference, "genes/genes.gtf")
         if self.build == None:
             self.build = "GRCh38"
-
-VM_REFERENCE = {
-    'linux': {
-        'publisher': 'Canonical',
-        'offer': 'UbuntuServer',
-        'sku': '16.04.0-LTS',
-        'version': 'latest'
-    },
-}
-
-LOCATION = 'canadaeast'
-GROUP_NAME = 'nick'
-VNET_NAME = 'scrnanet'
-SUBNET_NAME = 'scrnasubnet'
-NIC_NAME = 'scrnanic'
-VM_NAME = 'scrna-test'
-IP_ADDRESS_NAME='azure-sample-ip'
-USERNAME = 'nickceglia@gmail.com'
-PASSWORD = 'Aphahb_666'
-
-def create_vm_parameters(nic_id, vm_reference):
-    """Create the VM parameters structure.
-    """
-    return {
-        'location': LOCATION,
-        'os_profile': {
-            'computer_name': VM_NAME,
-            'admin_username': USERNAME,
-            'admin_password': PASSWORD
-        },
-        'hardware_profile': {
-            'vm_size': 'Standard_DS1_v2'
-        },
-        'storage_profile': {
-            'image_reference': {
-                'publisher': vm_reference['publisher'],
-                'offer': vm_reference['offer'],
-                'sku': vm_reference['sku'],
-                'version': vm_reference['version']
-            },
-        },
-        'network_profile': {
-            'network_interfaces': [{
-                'id': nic_id,
-            }]
-        },
-    }
