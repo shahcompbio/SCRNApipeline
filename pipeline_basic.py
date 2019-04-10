@@ -21,7 +21,7 @@ def create_workflow():
     print("Creating workflow.")
     workflow = pypeliner.workflow.Workflow()
 
-    prefix = args['sampleid']
+    prefix = config.prefix
 
     workflow = RunCellranger(prefix, workflow)
     workflow = RunQC(prefix, workflow)
@@ -33,8 +33,6 @@ if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser()
     pypeliner.app.add_arguments(argparser)
-
-    argparser.add_argument('--sampleid', type=str, help='Sample ID linked to fastqs in scrnadata.')
 
     parsed_args = argparser.parse_args()
 
