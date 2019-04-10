@@ -6,48 +6,43 @@ The workflow is inferred based on the inclusion (or omission) of command line ar
 
 # Running with Docker #
 
+#### Current docker image @ nceglia/scrna-pipeline:v1.0.0
+
+1. Required arguments.
+- sampleid (test)
+- build (GRCh38,mm10,test)
+
+All fastqs should be previously loaded into azure under the appropriate sampleid in scrnadata under rnaseq container.
+
+Pull docker image:
+```
+docker pull nceglia/scrna-pipeline:v1.0.0
+```
+
 Create a job directory with the directory structure including jobs/ data/ reference/.
 ```
 mkdir somedirectory/test-run
-mkdir somedirectory/test-run/jobs
+mkdir somedirectory/test-run/results
 mkdir somedirectory/test-run/data
 mkdir somedirectory/test-run/reference
+mkdir somedirectory/test-run/runs
 ```
 
-Copy dockerfile and settings yaml into job directory.
+Run docker on VM (not lsf).
 ```
-cp docker/settings.yaml somedirectory/test-run/
-cp docker/dockerfile somedirectory/test-run/
-```
-
-Edit settings.yaml with prefix, genome build, and datapath.
-```
-prefix: "test"
-build: "test"
-datapath: "/data/test"
-```
-
-Build image.
-```
-docker build .
-```
-
-Run docker.
-```
-docker run -v /Users/ceglian/Development/docker/data:/data -v /Users/ceglian/Development/docker/jobs/:jobs -v /Users/ceglian/Development/docker/reference:/reference
+docker run -e "R_HOME=/usr/local/lib/R/" -e "LD_LIBRARY_PATH=/usr/local/lib/R/lib/" -e "PYTHONPATH=$PYTHONPATH:/codebase/SCRNApipeline/" --mount type=bind,source="$(pwd)"/reference,target=/reference --mount type=bind,source="$(pwd)"/results,target=/results --mount type=bind,source="$(pwd)"/data,target=/data --mount type=bind,source="$(pwd)/runs",target=/runs -w="/runs" -t nceglia/scrna-pipeline:v1.0.0 run_vm --sampleid test --build test
 ```
 
 
-Main results are stored in mounted volumes.
-```
-ls PREFIX_report/PREFIX_results.html
-```
-
-
+Main results are stored in mounted volumes and loaded into azure.
+1. CellRanger Results in `cellrangerv3`
+2. Aligned Bams in `bams`
+2. QC'd SCEs in `rdatav3`
+3. HTML report, figures, cellassign, clonealign, scvis compressed in `results`
 
 
 Notes:
-If the build specified in the settings.yaml is not available, it will be pulled and built.  This will take a long time.
+1. If the build specified is not available in /reference (example /reference/GRCh38), it will be pulled and built.  This will take a long time.
 
 
 
