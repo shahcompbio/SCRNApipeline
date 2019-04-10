@@ -14,23 +14,8 @@ class Results(object):
         self.plots = list()
         self.output = config.jobpath
         self.report_dir = os.path.join(config.jobpath,"{}_report/".format(config.prefix))
-        self.sce_dir = os.path.join(config.jobpath, "rdata")
-        self.tables_dir = os.path.join(config.jobpath, "tables")
-        self.figures_dir = os.path.join(config.jobpath, "figures")
         try:
             os.makedirs(self.report_dir)
-        except Exception as e:
-            pass
-        try:
-            os.makedirs(self.sce_dir)
-        except Exception as e:
-            pass
-        try:
-            os.makedirs(self.tables_dir)
-        except Exception as e:
-            pass
-        try:
-            os.makedirs(self.figures_dir)
         except Exception as e:
             pass
         self.paths = []
@@ -53,7 +38,7 @@ class Results(object):
 
     def add_sce(self, sce):
         dest =  os.path.join(self.report_dir, os.path.split(sce)[1])
-        self.filtered_sce = os.path.split(dest)[1]
+        self.sce = os.path.split(dest)[1]
         self.paths.append((sce,dest))
 
     def add_cellassign_pkl(self, pkl):

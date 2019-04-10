@@ -16,8 +16,8 @@ import tarfile
 import pyparsing as pp
 import pickle
 from interface.singlecellexperiment import SingleCellExperiment
-from utils.export import ScaterCode
 from scipy import io, sparse
+
 
 config = Configuration()
 
@@ -162,18 +162,19 @@ class TenxAnalysis(object):
         return dict(zip(header,stats))
 
     def finalize(self):
-        outs = "/".join(self.path.split("/")[:-1])
-        bamdir = os.path.join(outs,"bams")
+        base = "/".join(self.path.split("/")[:-2])
+        print("Outs: ", base)
+        bamdir = os.path.join(base,"bams")
         try:
             os.makedirs(bamdir)
         except Exception as e:
             bams = glob.glob(self.path + "/pos*")
             for bam in bams:
                 shutil.move(bam,bamdir)
-        self.bamtarball = os.path.join(outs, "bam.tar.gz")
-        sample = self.path.split("/")[-2] + ".tar.gz"
-        base = "/".join(self.path.split("/")[:-1])
+        self.bamtarball = os.path.join(base, "bams.tar.gz")
+        sample = self.path.split("/")[-3] + ".tar.gz"
         self.outstarball = os.path.join(base, sample)
+        print(self.outstarball)
         with tarfile.open(self.outstarball, "w:gz") as tar:
             tar.add(self.path, arcname=os.path.basename(self.path))
         with tarfile.open(self.bamtarball, "w:gz") as tar:
@@ -278,13 +279,27 @@ class TenxAnalysis(object):
         if self.detected_version == "v3":
             return self.filtered_gene_bc_matrices
         else:
-            return os.path.join(self.filtered_gene_bc_matrices, config.build + "/")
+            build_filtered = os.path.join(self.filtered_gene_bc_matrices, config.build + "/")
+            if os.path.exists(build_filtered):
+                return build_filtered
+            else:
+                possible = glob.glob(os.path.join(self.filtered_gene_bc_matrices, "*"))
+                if len(possible) == 1:
+                    return possible[0]
+        raise ValueError("No filtered matrices found")
 
     def raw_matrices(self):
         if self.detected_version == "v3":
             return self.raw_gene_bc_matrices
         else:
-            return os.path.join(self.raw_gene_bc_matrices, config.build + "/")
+            build_raw = os.path.join(self.raw_gene_bc_matrices, config.build + "/")
+            if os.path.exists(build_raw):
+                return build_raw
+            else:
+                possible = glob.glob(os.path.join(self.raw_gene_bc_matrices, "*"))
+                if len(possible) == 1:
+                    return possible[0]
+        raise ValueError("No filtered matrices found")
 
     def filtered_barcodes(self):
         barcode_file = os.path.join(self.filtered_matrices(),"barcodes.tsv")

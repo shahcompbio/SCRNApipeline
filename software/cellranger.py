@@ -2,7 +2,6 @@ import subprocess
 import os
 import random
 from interface.fastqdirectory import FastQDirectory
-from interface.tenxanalysis import TenxAnalysis
 
 from utils.config import Configuration
 
@@ -73,6 +72,8 @@ class CellRanger(object):
 
     @staticmethod
     def count(fastqs):
+        print("Running Cellranger")
+        fastqs = [FastQDirectory(fastq, config.prefix, config.jobpath, config.datapath) for fastq in fastqs]
         args = dict()
         fastq_files = []
         args["id"] = "_".join([fastq.id for fastq in fastqs])

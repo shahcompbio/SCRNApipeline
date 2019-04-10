@@ -5,6 +5,7 @@ import shutil
 from interface.singlecellexperiment import SingleCellExperiment
 from interface.fastqdirectory import FastQDirectory
 from utils.config import Configuration
+from utils.cloud import ReportStorage
 
 config = Configuration()
 
@@ -33,8 +34,10 @@ def imports(handle):
     handle.write("library(Rtsne)\n")
     handle.write("```\n")
 
-def exportFinalize(results):
+def exportUpload(results):
     results.finalize()
+    store = ReportStorage(results)
+    store.upload(config.jobpath, config.prefix)
 
 def exportMD(results):
     results.finalize()
@@ -44,16 +47,8 @@ def exportMD(results):
     output.write("***\n")
     output.write("\n\n## Pipeline Output\n")
     output.write(" - [CellRanger Summary]({})\n".format(results.summary))
-    output.write(" - SCE Object (TenX Raw): unfiltered_sce.rdata\n\n".format(results.filtered_sce))
-    output.write(" - SCE Object (TenX Filtered): filtered_sce.rdata\n\n".format(results.filtered_sce))
-    output.write(" - SCE Object (QC'd): {}\n\n".format(results.filtered_sce))
-    output.write(" - CellAssign R Object: {}\n\n".format(results.raw))
-    output.write(" - QC Workflow {} - Standard\n\n".format(config.qc_type))
-    output.write(" - R QC Workflow: {}\n\n".format(results.script))
-
-    output.write("***\n")
-    output.write("## Quality Control\n")
-    code = open(results.script,"r").read()
+    output.write(" - SCE Object (QC'd): {}\n\n".format(results.sce))
+    output.write(" - QC Workflow {}\n\n".format(config.qc_type))
 
     output.write("## Analysis\n")
     for plot in results.plots:
@@ -61,9 +56,9 @@ def exportMD(results):
         output.write("![{}]({})\n".format(plot["desc"],plot["path"]))
 
     output.close()
-    #convertHTML(markdown, results.report_dir)
-
-
+#     convertHTML(markdown, results.report_dir)
+#
+#
 # def convertHTML(markdown, report):
 #     output = open(os.path.join(report, "{}_results.html".format(config.prefix)),"w")
 #     markdowner = Markdown()

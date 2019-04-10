@@ -9,7 +9,6 @@ import subprocess
 from utils.cloud import FastqDataStorage
 
 
-
 class SampleSheet(object):
 
     def __init__(self, filename = None, delim=","):

@@ -283,12 +283,6 @@ def create_workflow():
     """
     Gene Level
     """
-    ## Table of Data
-    # if config.tables:
-    #     secondary_analysis.gene_table(tenx_analysis)
-    #     secondary_analysis.enrichment_by_cluster(tenx_analysis)
-    #     secondary_analysis.enrichment_by_celltype(tenx_analysis)
-    #     secondary_analysis.differential_analysis(tenx_analysis)
 
     """
     Reporting

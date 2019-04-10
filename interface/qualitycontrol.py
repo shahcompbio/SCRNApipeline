@@ -16,7 +16,7 @@ class QualityControl(object):
         self.tenx = tenx
         self.sampleid = sampleid
         self.sce = os.path.join(tenx.path,"{0}.rdata".format(sampleid))
-        self.qcdsce = os.path.join(tenx.path,"{0}qcd.rdata".format(sampleid))
+        self.qcdsce = os.path.join(tenx.path,"{0}_qcd.rdata".format(sampleid))
         self.cache = ".cache"
         if not os.path.exists(self.cache):
             os.makedirs(self.cache)
@@ -47,7 +47,10 @@ class QualityControl(object):
         if mouse:
             version = "mouse{}".format(self.tenx.detected_version)
         else:
-            version = self.tenx.detected_version
+            try:
+                version = self.tenx.detected_version
+            except Exception as e:
+                version = "v3"
         self.container = "rdata{}".format(version)
         self.rawcontainer = "rdataraw{}".format(version)
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
@@ -55,23 +58,25 @@ class QualityControl(object):
     def filter(self, mito=10):
         if not os.path.exists(self.qcdsce):
             assert os.path.exists(self.sce), "SCE needs to be built before filtered."
+            print (" ".join(["Rscript", self.script, self.sce, self.qcdsce, str(mito)]))
             subprocess.call(["Rscript", self.script, self.sce, self.qcdsce, str(mito)])
 
     def build(self):
         if not os.path.exists(self.sce):
             mat = self.tenx.filtered_matrices()
             print(" ".join(["Rscript", self.construct, mat, self.sce]))
-            subprocess.call(["Rscript", self.veryraw, mat, self.sce])
+            subprocess.call(["Rscript", self.construct, mat, self.sce])
 
     def build_raw(self):
         mat = self.tenx.raw_matrices()
-        print(" ".join(["Rscript", self.construct, mat, self.sce]))
+        print(" ".join(["Rscript", self.veryraw, mat, self.sce]))
         subprocess.call(["Rscript", self.veryraw, mat, self.sce])
 
     def plot(self):
         assert os.path.exists(self.sce), "SCE needs to be built before plotted."
         mat = self.tenx.filtered_matrices()
-        subprocess.call(["Rscript", self.figures, mat, self.sce])
+        print (" ".join(["Rscript", self.figures, self.sce, self.plots]))
+        subprocess.call(["Rscript", self.figures, self.sce, self.plots])
 
     def run(self, mito=10):
         self.build()
@@ -85,10 +90,10 @@ class QualityControl(object):
         return SingleCellExperiment.fromRData(self.sce)
 
     def upload(self):
-        self.block_blob_service.create_blob_from_path(self.container,"{0}.rdata".format(self.sampleid), self.sce)
+        self.block_blob_service.create_blob_from_path(self.container, self.qcdsce, self.qcdsce)
 
     def upload_raw(self):
-        self.block_blob_service.create_blob_from_path(self.rawcontainer,"{0}.rdata".format(self.sampleid), self.sce)
+        self.block_blob_service.create_blob_from_path(self.rawcontainer, self.sce, self.sce)
 
 
 
@@ -177,6 +182,8 @@ library(Rtsne)
 args = commandArgs(trailingOnly=TRUE)
 
 rdata <- readRDS(args[1])
+sce <- as(rdata, 'SingleCellExperiment')
+
 cells_to_keep <- sce$total_features_by_counts > 1000 & sce$pct_counts_mito < args[3]
 table_cells_to_keep <- table(cells_to_keep)
 sce <- sce[,cells_to_keep]
@@ -197,6 +204,8 @@ args = commandArgs(trailingOnly=TRUE)
 
 rdata <- readRDS(args[1])
 sce <- as(rdata, 'SingleCellExperiment')
+
+sce <- normalize(sce)
 
 sce <- runPCA(sce, ncomponents = 3)
 set.seed(123L)

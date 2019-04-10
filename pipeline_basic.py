@@ -8,26 +8,24 @@ import pypeliner.workflow
 import pypeliner.app
 import pypeliner.managed
 
-from utils.config import Configuration, write_config
+from utils.config import Configuration
 
 from workflows.run_cellranger import RunCellranger
 from workflows.run_qc import RunQC
+from workflows.run_report import RunReport
+from workflows.run_cellassign import RunCellAssign
+
+config = Configuration()
 
 def create_workflow():
-
+    print("Creating workflow.")
     workflow = pypeliner.workflow.Workflow()
 
-    _fastqs = args.get("sampleid")
-    prefix = args.get("sampleid")
-    reference = args.get("reference")
-    output = args.get("output")
-    write_config(prefix,output,reference)
+    prefix = args['sampleid']
 
-    print("Setting up fastqs...")
-    fastqs = []
-    fastqs.append(FastQDirectory(fastq, prefix, output, "/data"))
-
-    workflow = RunCellranger(fastqs, workflow)
+    workflow = RunCellranger(prefix, workflow)
+    workflow = RunQC(prefix, workflow)
+    workflow = RunReport(prefix, workflow)
 
     return workflow
 
@@ -36,9 +34,7 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
     pypeliner.app.add_arguments(argparser)
 
-    argparser.add_argument('--sampleid', type=str, nargs="+", help='Sample ID linked to fastqs in scrnadata.')
-    argparser.add_argument('--output', type=str, help="Base directory for output")
-    argparser.add_argument("--reference", type=str, help="Reference build.")
+    argparser.add_argument('--sampleid', type=str, help='Sample ID linked to fastqs in scrnadata.')
 
     parsed_args = argparser.parse_args()
 
