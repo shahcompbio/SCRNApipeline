@@ -16,5 +16,8 @@ parser.add_argument("--lsf", action='store_true', help="Path to cellranger bin."
 
 args = parser.parse_args()
 
-write_config(args.sampleid, args.build, args.jobpath, args.datapath, args.referencepath, args.cellranger, args.lsf)
+if not os.path.exists(os.path.join(args.datapath, args.sampleid)):
+    os.makedirs(os.path.join(args.datapath, args.sampleid))
+
+write_config(args.sampleid, args.build, args.jobpath, os.path.join(args.datapath, args.sampleid), args.referencepath, args.cellranger, args.lsf)
 print("Config written to settings.yaml")
