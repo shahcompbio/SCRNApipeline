@@ -12,8 +12,9 @@ parser.add_argument("--jobpath", type=str, help="Path to job folder.", default =
 parser.add_argument("--datapath", type=str, help="Path to directory holding fastqs.", default ="/data")
 parser.add_argument("--referencepath", type=str, help="Path to reference directory with reference in dir labelled by build.", default="/reference")
 parser.add_argument("--cellranger", type=str, help="Path to cellranger bin.", default="/codebase/cellranger-3.0.2/cellranger-cs/3.0.2/bin/")
+parser.add_argument("--lsf", action='store_true', help="Path to cellranger bin.")
 
 args = parser.parse_args()
 
-write_config(args.sampleid, args.build, args.jobpath, args.datapath, args.referencepath, args.cellranger)
+write_config(args.sampleid, args.build, args.jobpath, args.datapath, args.referencepath, args.cellranger, args.lsf)
 print("Config written to settings.yaml")

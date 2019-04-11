@@ -36,12 +36,13 @@ qc_type: "standard"
 scviz_embedding: None
 copy_number_data: None
 mito: 10
+lsf: {6}
 """
 
 
-def write_config(prefix, build, jobpath, datapath, referencepath, cellranger):
+def write_config(prefix, build, jobpath, datapath, referencepath, cellranger, lsf):
     output = open("settings.yaml","w")
-    output.write(basic_yaml.format(prefix, build, jobpath, datapath, referencepath, cellranger))
+    output.write(basic_yaml.format(prefix, build, jobpath, datapath, referencepath, cellranger, lsf))
 
 class Configuration(object):
     def __init__(self):

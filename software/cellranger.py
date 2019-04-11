@@ -17,7 +17,8 @@ class CellRanger(object):
             )
             cmd.append(value)
         cmd.append("--disable-ui")
-        # cmd.append("--jobmode=lsf")
+        if config.lsf:
+            cmd.append("--jobmode=lsf")
         return cmd
 
     @staticmethod
