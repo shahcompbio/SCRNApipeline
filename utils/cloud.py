@@ -143,7 +143,7 @@ class ReferenceDataStorage(object):
 
     def download(self):
         local = os.path.join(self.referencepath, "{}.tar.gz".format(self.build))
-        if not os.path.exists(local):
+        if not os.path.exists(self.reference):
             self.block_blob_service.get_blob_to_path(self.container, "{}.tar.gz".format(self.build), local)
             self.extract(local)
         return self.reference
