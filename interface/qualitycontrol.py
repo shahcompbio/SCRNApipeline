@@ -25,22 +25,22 @@ class QualityControl(object):
         self.figures = os.path.join(self.cache,"figures.R")
         self.plots = os.path.join(self.tenx.path, "qc_figures")
         self.veryraw = os.path.join(self.tenx.path, "raw_build.R")
-        if not os.path.exists(self.script):
-            output = open(self.script,"w")
-            output.write(filter)
-            output.close()
-        if not os.path.exists(self.construct):
-            output = open(self.construct,"w")
-            output.write(script)
-            output.close()
-        if not os.path.exists(self.figures):
-            output = open(self.figures,"w")
-            output.write(figures)
-            output.close()
-        if not os.path.exists(self.veryraw):
-            output = open(self.veryraw,"w")
-            output.write(raw)
-            output.close()
+
+        output = open(self.script,"w")
+        output.write(filter)
+        output.close()
+
+        output = open(self.construct,"w")
+        output.write(script)
+        output.close()
+
+        output = open(self.figures,"w")
+        output.write(figures)
+        output.close()
+
+        output = open(self.veryraw,"w")
+        output.write(raw)
+        output.close()
         if not os.path.exists(self.plots):
             os.makedirs(self.plots)
         self.storage_account = "scrnadata"
@@ -56,10 +56,9 @@ class QualityControl(object):
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
 
     def filter(self, mito=10):
-        if not os.path.exists(self.qcdsce):
-            assert os.path.exists(self.sce), "SCE needs to be built before filtered."
-            print (" ".join(["Rscript", self.script, self.sce, self.qcdsce, str(mito)]))
-            subprocess.call(["Rscript", self.script, self.sce, self.qcdsce, str(mito)])
+        assert os.path.exists(self.sce), "SCE needs to be built before filtered."
+        print (" ".join(["Rscript", self.script, self.sce, self.qcdsce, str(mito)]))
+        subprocess.call(["Rscript", self.script, self.sce, self.qcdsce, str(mito)])
 
     def build(self):
         if not os.path.exists(self.sce):
@@ -78,10 +77,12 @@ class QualityControl(object):
         print (" ".join(["Rscript", self.figures, self.sce, self.plots]))
         subprocess.call(["Rscript", self.figures, self.sce, self.plots])
 
+
     def run(self, mito=10):
+        print("Running QC...")
         self.build()
         self.filter(mito=mito)
-        self.plot()
+        # self.plot()
 
     def move(self, path):
         shutil.copyfile(self.sce, path)
@@ -90,10 +91,12 @@ class QualityControl(object):
         return SingleCellExperiment.fromRData(self.sce)
 
     def upload(self):
-        self.block_blob_service.create_blob_from_path(self.container, self.qcdsce, self.qcdsce)
+        print ("Uploading QCD ", self.qcdsce)
+        self.block_blob_service.create_blob_from_path(self.container, "{}.rdata".format(self.sampleid), self.qcdsce)
 
     def upload_raw(self):
-        self.block_blob_service.create_blob_from_path(self.rawcontainer, self.sce, self.sce)
+        print ("Uploading Raw")
+        self.block_blob_service.create_blob_from_path(self.rawcontainer, "{}.rdata".format(self.sampleid), self.sce)
 
 
 
@@ -184,7 +187,7 @@ args = commandArgs(trailingOnly=TRUE)
 rdata <- readRDS(args[1])
 sce <- as(rdata, 'SingleCellExperiment')
 
-cells_to_keep <- sce$total_features_by_counts > 1000 & sce$pct_counts_mito < args[3]
+cells_to_keep <- sce$pct_counts_mito < args[3]
 table_cells_to_keep <- table(cells_to_keep)
 sce <- sce[,cells_to_keep]
 
