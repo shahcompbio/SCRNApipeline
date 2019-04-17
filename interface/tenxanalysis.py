@@ -168,13 +168,13 @@ class TenxAnalysis(object):
         try:
             os.makedirs(bamdir)
         except Exception as e:
-            bams = glob.glob(self.path + "/pos*")
-            for bam in bams:
-                shutil.move(bam,bamdir)
+            pass
+        bams = glob.glob(self.path + "/pos*")
+        for bam in bams:
+            shutil.move(bam,bamdir)
         self.bamtarball = os.path.join(base, "bams.tar.gz")
         sample = self.path.split("/")[-3] + ".tar.gz"
         self.outstarball = os.path.join(base, sample)
-        print(self.outstarball)
         with tarfile.open(self.outstarball, "w:gz") as tar:
             tar.add(self.path, arcname=os.path.basename(self.path))
         with tarfile.open(self.bamtarball, "w:gz") as tar:
