@@ -16,7 +16,7 @@ build: "{1}"
 jobpath: "{2}"
 datapath: "{3}"
 referencepath: "{4}"
-rho_matrix: None
+rho_matrix: /work/shah/reference/transcriptomes/markers/hgsc_v1.yaml
 cellranger: "{5}"
 copy_number_data: None
 scviz_embedding: None

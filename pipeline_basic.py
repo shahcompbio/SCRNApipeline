@@ -25,6 +25,7 @@ def create_workflow():
 
     workflow = RunCellranger(prefix, workflow)
     workflow = RunQC(prefix, workflow)
+    # workflow = RunCellAssign(prefix, workflow)
     workflow = RunReport(prefix, workflow)
 
     return workflow

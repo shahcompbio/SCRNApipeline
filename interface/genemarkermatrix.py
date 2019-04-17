@@ -23,9 +23,7 @@ class GeneMarkerMatrix(object):
                 line = line.split("#")[0]
                 marker_list[celltype].append(line.replace("-","").strip())
             elif ":" in line:
-                print(celltype)
                 celltype = line.replace(":","").strip()
-        print (marker_list)
         return cls(marker_list)
 
     def write_matrix(self, filename, include_other=True):
