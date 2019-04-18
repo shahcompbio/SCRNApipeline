@@ -23,8 +23,7 @@ def Run(sampleid, before, finished):
     tenx_analysis.extract()
     qc = QualityControl(tenx_analysis, sampleid)
     qc.build()
-    fit = os.path.join(analysis_path, "{}_cellasign.rdata".format(sampleid))
-    CellAssign.run(qc.sce, config.rho_matrix, fit)
+    CellAssign.run(qc.sce, config.rho_matrix, finished)
     open(finished,"w").write("Completed")
 
 

@@ -14,7 +14,6 @@ class CellAssign(object):
         env = os.environ.copy()
         env["NPY_MKL_FORCE_INTEL"] = "GNU"
         submit = ["Rscript",".cache/run_cellassign.R"]
-        print(" ".join(submit))
         subprocess.call(submit, env=env)
 
     @staticmethod
@@ -49,7 +48,6 @@ library(reticulate)
 use_python("/home/ceglian/anaconda/bin/python3")
 library(cellassign)
 library(tensorflow)
-library(cellassign.utils)
 library(scran)
 
 rho <- read.csv("{rho}")
