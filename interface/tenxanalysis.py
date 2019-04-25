@@ -426,8 +426,8 @@ class TenxAnalysis(object):
             embedding.append(row)
         return numpy.array(embedding).reshape(2,len(rows))
 
-    def clusters(self, sce, pcs=50, copy = False):
-        adata = self.create_scanpy_adata(sce, fast_load=False, high_var=True)
+    def clusters(self, pcs=50, copy = False):
+        adata = self.create_scanpy_adata_basic()
         projection = sce.getReducedDims("PCA",n=pcs)
         adata.obsm["X_pca"] = projection.T
         sc.tl.leiden(adata, resolution=0.195)

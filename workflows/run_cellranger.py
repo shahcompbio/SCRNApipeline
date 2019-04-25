@@ -20,10 +20,10 @@ def Run(sampleid, finished):
 
 def upload_tenx(sampleid, before, finished):
     print("Calling upload.")
-    tenx = TenxAnalysis("./{}/outs/".format(sampleid))
-    tenx.finalize()
-    tenxds = TenxDataStorage(sampleid)
-    tenxds.upload_cellranger(tenx)
+    # tenx = TenxAnalysis("./{}/outs/".format(sampleid))
+    # tenx.finalize()
+    # tenxds = TenxDataStorage(sampleid)
+    # tenxds.upload_cellranger(tenx)
     open(finished,"w").write("Completed")
 
 def RunCellranger(sampleid, workflow):

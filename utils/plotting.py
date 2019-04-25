@@ -19,29 +19,22 @@ import sys
 sns.set(style="darkgrid")
 
 
-def celltypes(rdata, cell_assign_fit, prefix, output):
-    sce = SingleCellExperiment.fromRData(rdata)
-    valid_barcodes = sce.colData["Barcode"]
-    fit = pickle.load(open(cell_assign_fit,"rb"))
-    cell_types = list(fit["cell_type"])
-    barcodes = list(fit["Barcode"])
-    order = []
-    invalid = 0
-    for barcode, cell_type in zip(barcodes[:len(valid_barcodes)],cell_types[:len(valid_barcodes)]):
-        if barcode not in valid_barcodes:
-            invalid += 1
-            continue
-        if cell_type not in order:
-            order.append(cell_type)
-        if len(order) == len(set(cell_types)):
-            break
-    print("Dismissed {} barcodes.".format(invalid))
+def celltypes(pyfit, sampleid, directory, known_types=None):
+    cell_types = list(pyfit["cell_type"])
+    barcodes = list(pyfit["Barcode"])
+    known_types = [".".join(x.split()) for x in known_types]
+    # order = []
+    # for barcode, cell_type in zip(barcodes, cell_types):
+    #     if cell_type not in order:
+    #         order.append(cell_type)
+    #     if len(order) == len(set(cell_types)):
+    #         break
     f, ax = plt.subplots(figsize=(12,6))
-    ax.set_title("Cell Type Assignments - {}".format(prefix))
-    sns.countplot(cell_types, palette="tab10", order=list(sorted(order)))
-    ax.set_xticklabels(labels=list(sorted(order)),rotation=90)
+    ax.set_title("Cell Type Assignments - {}".format(sampleid))
+    sns.countplot(cell_types, palette="tab10", order=list(sorted(known_types)))
+    ax.set_xticklabels(labels=list(sorted(known_types)),rotation=90)
     plt.tight_layout()
-    figure = os.path.join(output, "figures/cell_types.png")
+    figure = os.path.join(directory, "cell_types.png")
     plt.savefig(figure)
 
 def scvis_by_cell_type(rdata, cell_assign_fit, prefix, embedding_file):
@@ -71,18 +64,12 @@ def scvis_by_cell_type(rdata, cell_assign_fit, prefix, embedding_file):
     ax.set_title("SCVIS - Cell Type - {}".format(prefix))
     ax.legend()
     plt.tight_layout()
-    print("yes")
     plt.savefig("figures/scvis_by_cell_type_{}.png".format(prefix))
 
-def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
-    sce = SingleCellExperiment.fromRData(rdata)
-    fit = pickle.load(open(cell_assign_fit,"rb"))
-    tsne_dims = sce.reducedDims["TSNE"]
-    barcodes = sce.colData["Barcode"]
-    cell_types = dict(zip(fit["Barcode"][:len(barcodes)],fit["cell_type"][:len(barcodes)]))
-    tsne_dims = numpy.array(tsne_dims).reshape(2, len(barcodes))
-    x_coded = dict(zip(barcodes, tsne_dims[0]))
-    y_coded = dict(zip(barcodes, tsne_dims[1]))
+def reduced_dims_by_cell_type(cell_types, rdims, barcodes, filename, dimtype, known_types=None):
+    x_coded = dict(zip(barcodes, rdims[0]))
+    y_coded = dict(zip(barcodes, rdims[1]))
+    known_types = [".".join(x.split()) for x in known_types]
     x = []
     y = []
     clusters = []
@@ -99,11 +86,29 @@ def tsne_by_cell_type(rdata, cell_assign_fit, prefix):
         x.append(x_val)
         y.append(y_val)
     f, ax = plt.subplots(figsize=(10,8))
-    sns.scatterplot(x=x, y=y, hue=clusters, alpha=0.85)
-    ax.set_title("TSNE - Cell Type - {}".format(prefix))
+    sns.scatterplot(x=x, y=y, hue=clusters, hue_order=list(sorted(known_types)), alpha=0.85)
+    ax.set_title("{} - Cell Types".format(dimtype))
     ax.legend()
     plt.tight_layout()
-    plt.savefig("{}/tsne_by_cell_type.png".format(prefix))
+    plt.savefig(filename)
+
+def umap_by_cell_type(rdata, fit, sampleid, directory, known_types=None):
+    sce = SingleCellExperiment.fromRData(rdata)
+    umap_dims = sce.reducedDims["UMAP"]
+    barcodes = sce.colData["Barcode"]
+    cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
+    umap_dims = numpy.array(umap_dims).reshape(2, len(barcodes))
+    filename = os.path.join(directory, "umap_by_cell_type.png")
+    reduced_dims_by_cell_type(cell_types, umap_dims, barcodes, filename, "UMAP", known_types=known_types)
+
+def tsne_by_cell_type(rdata, fit, sampleid, directory, known_types=None):
+    sce = SingleCellExperiment.fromRData(rdata)
+    tsne_dims = sce.reducedDims["TSNE"]
+    barcodes = sce.colData["Barcode"]
+    cell_types = dict(zip(fit["Barcode"],fit["cell_type"]))
+    tsne_dims = numpy.array(tsne_dims).reshape(2, len(barcodes))
+    filename = os.path.join(directory, "tsne_by_cell_type.png")
+    reduced_dims_by_cell_type(cell_types, tsne_dims, barcodes, filename, "TSNE", known_types=known_types)
 
 def pca_by_cell_type(rdata, cell_assign_fit, prefix):
     sce = SingleCellExperiment.fromRData(rdata)
@@ -474,7 +479,6 @@ def marker_analysis(sce, tenx, rho, cell_assign_fit, figure):
     fit = pickle.load(open(cell_assign_fit,"rb"))
     gene_markers = []
     for markers in rho.values():
-        print(markers)
         gene_markers += markers
     _marker_genes = list(set(gene_markers))
     convert = tenx.gene_map(sce)

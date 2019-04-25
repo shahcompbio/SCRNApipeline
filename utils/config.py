@@ -16,7 +16,7 @@ build: "{1}"
 jobpath: "{2}"
 datapath: "{3}"
 referencepath: "{4}"
-rho_matrix: /work/shah/reference/transcriptomes/markers/hgsc_v1.yaml
+rho_matrix: {7}
 cellranger: "{5}"
 copy_number_data: None
 scviz_embedding: None
@@ -40,9 +40,9 @@ lsf: {6}
 """
 
 
-def write_config(prefix, build, jobpath, datapath, referencepath, cellranger, lsf):
+def write_config(prefix, build, jobpath, datapath, referencepath, cellranger, lsf, markers):
     output = open("settings.yaml","w")
-    output.write(basic_yaml.format(prefix, build, jobpath, datapath, referencepath, cellranger, lsf))
+    output.write(basic_yaml.format(prefix, build, jobpath, datapath, referencepath, cellranger, lsf, markers))
 
 class Configuration(object):
     def __init__(self):

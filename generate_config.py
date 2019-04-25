@@ -14,6 +14,7 @@ parser.add_argument("--datapath", type=str, help="Path to directory holding fast
 parser.add_argument("--referencepath", type=str, help="Path to reference directory with reference in dir labelled by build.", default="/reference")
 parser.add_argument("--cellranger", type=str, help="Path to cellranger bin.", default="/codebase/cellranger-3.0.2/cellranger-cs/3.0.2/bin/")
 parser.add_argument("--lsf", action='store_true', help="Path to cellranger bin.")
+parser.add_argument("--markers", type=str, help="Path to marker matrix.")
 
 args = parser.parse_args()
 
@@ -21,5 +22,5 @@ if not os.path.exists(os.path.join(args.datapath, args.sampleid)):
     os.makedirs(os.path.join(args.datapath, args.sampleid))
 
 
-write_config(args.sampleid, args.build, args.jobpath, os.path.join(args.datapath, args.sampleid), args.referencepath, args.cellranger, args.lsf)
+write_config(args.sampleid, args.build, args.jobpath, os.path.join(args.datapath, args.sampleid), args.referencepath, args.cellranger, args.lsf, args.markers)
 print("Config written to settings.yaml")

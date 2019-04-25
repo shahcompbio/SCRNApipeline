@@ -51,7 +51,6 @@ class Results(object):
         self.raw = os.path.split(dest)[1]
         self.paths.append((raw,dest))
 
-
     def add_plot(self, path, header, desc=""):
         plot = dict()
         dest =  os.path.join(self.report_dir, os.path.split(path)[1])

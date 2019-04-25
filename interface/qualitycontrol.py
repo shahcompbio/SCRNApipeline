@@ -56,16 +56,14 @@ class QualityControl(object):
         self.block_blob_service = BlockBlobService(account_name='scrnadata', sas_token='?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2021-03-19T02:52:48Z&st=2019-02-22T19:52:48Z&spr=https&sig=4oAGvIyqi9LPY89t21iWWp4XbbIgpmaldgcwWUOuf14%3D')
 
     def filter(self, mito=10):
-        if not os.path.exists(self.qcdsce):
-            assert os.path.exists(self.sce), "SCE needs to be built before filtered."
-            print (" ".join(["Rscript", self.script, self.sce, self.qcdsce, str(mito)]))
-            subprocess.call(["Rscript", self.script, self.sce, self.qcdsce, str(mito)])
+        assert os.path.exists(self.sce), "SCE needs to be built before filtered."
+        print (" ".join(["Rscript", self.script, self.sce, self.qcdsce, str(mito)]))
+        subprocess.call(["Rscript", self.script, self.sce, self.qcdsce, str(mito)])
 
     def build(self):
-        if not os.path.exists(self.sce):
-            mat = self.tenx.filtered_matrices()
-            print(" ".join(["Rscript", self.construct, mat, self.sce]))
-            subprocess.call(["Rscript", self.construct, mat, self.sce])
+        mat = self.tenx.filtered_matrices()
+        print(" ".join(["Rscript", self.construct, mat, self.sce]))
+        subprocess.call(["Rscript", self.construct, mat, self.sce])
 
     def build_raw(self):
         mat = self.tenx.raw_matrices()
@@ -83,7 +81,7 @@ class QualityControl(object):
         print("Running QC...")
         self.build()
         self.filter(mito=mito)
-        # self.plot()
+        self.plot()
 
     def move(self, path):
         shutil.copyfile(self.sce, path)
@@ -145,6 +143,7 @@ attributes = c("ensembl_gene_id", "hgnc_symbol", "entrezgene",
 dataset = "hsapiens_gene_ensembl")
 
 
+print("Calculating Size Factors")
 # Calculate size factors
 sce_result <- tryCatch({scran::computeSumFactors(sce)},error=function(e) {NULL})
 poolsize <- 100;
@@ -166,12 +165,22 @@ feature_ctrls <- list(mito = rownames(sce)[mt_genes],
                       ribo = rownames(sce)[ribo_genes])
 
 # Calculate QC metrics
+print("Calculating QC Metrics")
 sce <- calculateQCMetrics(sce, feature_controls = feature_ctrls)
+
+#Reduced dimensions
+print("Running PCA")
+sce <- runPCA(sce, ntop = 1000, ncomponents = 50, exprs_values = "logcounts")
+print("Running TSNE")
+sce <- runTSNE(sce, use_dimred = "PCA", n_dimred = 50, ncomponents = 2)
+print("Running UMAP")
+sce <- runUMAP(sce, use_dimred = "PCA", n_dimred = 50, ncomponents = 2)
 
 # Make sure colnames are unique
 colnames(sce) <- paste0(metadata(sce)$id, "_", sce$Barcode)
 
 saveRDS(sce, file=args[2])
+print("Finished SCE Build")
 """
 
 
@@ -180,19 +189,23 @@ library(scater)
 library(SingleCellExperiment)
 library(stringr)
 library(scran)
-library(Rtsne)
-
 
 args = commandArgs(trailingOnly=TRUE)
 
 rdata <- readRDS(args[1])
 sce <- as(rdata, 'SingleCellExperiment')
 
+print("Filtering")
 cells_to_keep <- sce$pct_counts_mito < args[3]
 table_cells_to_keep <- table(cells_to_keep)
 sce <- sce[,cells_to_keep]
+summ <- summary(sce$total_counts)
+thresh <- summ[[2]]
+keep <- sce$total_counts > thresh
+sce <- sce[,keep]
 
 saveRDS(sce, file=args[2])
+print("Finished Filtering")
 """
 
 
@@ -201,31 +214,13 @@ library(scater)
 library(SingleCellExperiment)
 library(stringr)
 library(scran)
-library(Rtsne)
-
 
 args = commandArgs(trailingOnly=TRUE)
 
 rdata <- readRDS(args[1])
 sce <- as(rdata, 'SingleCellExperiment')
 
-sce <- normalize(sce)
-
-sce <- runPCA(sce, ncomponents = 3)
-set.seed(123L)
-sce <- runTSNE(sce)
-
-png(paste0(args[2],"/total_features_by_counts.png"))
-plotPCA(sce, colour_by = "total_features_by_counts")
-dev.off()
-
-png(paste0(args[2],"/pct_counts_mito.png"))
-plotPCA(sce, colour_by = "pct_counts_mito")
-dev.off(0)
-
-png(paste0(args[2],"/pct_counts_ribo.png"))
-plotPCA(sce, colour_by = "pct_counts_ribo")
-dev.off(0)
+print("Generating Figures")
 
 png(paste0(args[2],"/mito_v_features_by_counts.png"))
 plotColData(sce, x = "total_features_by_counts", y = "pct_counts_mito")
@@ -233,6 +228,10 @@ dev.off(0)
 
 png(paste0(args[2],"/total_counts_v_features_by_counts.png"))
 plotColData(sce, x = "total_features_by_counts", y = "total_counts")
+dev.off(0)
+
+png(paste0(args[2],"/counts.png"))
+hist(sce$total_counts, breaks=20, col='darkgoldenrod1',xlab='Total Counts')
 dev.off(0)
 
 png(paste0(args[2],"/umi.png"))
@@ -245,4 +244,6 @@ dev.off(0)
 
 png(paste0(args[2],"/ribo.png"))
 hist(sce$pct_counts_ribo, breaks=20, col='firebrick4',xlab='Proportion of reads in ribosomal genes')
+
+print("Finished Figures")
 """
