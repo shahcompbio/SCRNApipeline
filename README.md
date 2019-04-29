@@ -105,7 +105,7 @@ fields = data.keys()
  - Samples should start with "*Sample*" right now.
 ```
 samples = list(filter(lambda x: "Sample" in x, fields))
-right_ovary = data["Sample_ROVCD45POS_IGO_09443_B_1"]
+right_ovary = data["SampleSite"]
 right_ovary_cells = right_ovary["celldata"]["Barcode"] # All barcodes for sample
 right_ovary_genes = right_ovary["genedata"]["Symbol"] # All genes for sample
 ```
@@ -115,7 +115,7 @@ right_ovary_genes = right_ovary["genedata"]["Symbol"] # All genes for sample
 They are all fairly important, try to compare all values across sites.
 ```
 stats_by_samples = data["statistics"]
-right_ovary_stats = stats_by_samples["Sample_ROVCD45POS_IGO_09443_B_1"]
+right_ovary_stats = stats_by_samples["SampleSite"]
 cellranger_kit = right_ovary_stats["Chemistry"]
 estimated_number_of_cells = int(right_ovary_stats["Estimated Number of Cells"])
 cells_retained_at_default_value_for_qc = int(right_ovary_stats["Mito10"])
