@@ -9,27 +9,6 @@ import tarfile
 import shutil
 import gzip
 
-
-class ResultsInterface(object):
-
-    def __init__(self, version="", dir="./tmp"):
-        self.dir = dir + version
-        try:
-            os.makedirs(dir)
-        except Exception as e:
-            pass
-        self.results = []
-        self.version = version
-        cmd = "az storage blob list --container-name cellranger{} --account-name scrnadata --auth-mode login".format(version)
-        json_dump = subprocess.check_output(cmd.split())
-        blobs = json.loads(json_dump)
-        for blob in blobs:
-            if "patient1" not in blob["name"]: continue
-            result = TenxDataStorage(blob["name"], version=version)
-            result.download()
-            self.results.append(result)
-
-
 class TenxDataStorage(object):
 
     def __init__(self, sampleid, version="v3"):

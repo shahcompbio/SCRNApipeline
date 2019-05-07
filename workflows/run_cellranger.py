@@ -9,7 +9,6 @@ from software.cellranger import CellRanger
 from interface.fastqdirectory import FastQDirectory
 from interface.tenxanalysis import TenxAnalysis
 from utils.cloud import TenxDataStorage
-
 from utils.config import Configuration, write_config
 
 config = Configuration()
@@ -20,10 +19,10 @@ def Run(sampleid, finished):
 
 def upload_tenx(sampleid, before, finished):
     print("Calling upload.")
-    # tenx = TenxAnalysis("./{}/outs/".format(sampleid))
-    # tenx.finalize()
-    # tenxds = TenxDataStorage(sampleid)
-    # tenxds.upload_cellranger(tenx)
+    tenx = TenxAnalysis("./{}/outs/".format(sampleid))
+    tenx.finalize()
+    tenxds = TenxDataStorage(sampleid)
+    tenxds.upload_cellranger(tenx)
     open(finished,"w").write("Completed")
 
 def RunCellranger(sampleid, workflow):
