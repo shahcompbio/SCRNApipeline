@@ -1,5 +1,7 @@
 # Single Cell RNA-Seq Pipeline #
 
+[![Docker Repository on Quay](https://quay.io/repository/nceglia/scrna-pipeline/status "Docker Repository on Quay")](https://quay.io/repository/nceglia/scrna-pipeline)
+
 Pipeline for running single cell RNA-seq experiments.
 This is primarily built on Cell Ranger with additional analysis from CellAssign, CloneAlign, and SCViz tools.
 The workflow is inferred based on the inclusion (or omission) of command line arguments.
